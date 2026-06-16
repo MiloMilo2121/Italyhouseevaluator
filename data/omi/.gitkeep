@@ -1,0 +1,3 @@
+# I file OMI reali (VALORI csv, ZONE csv, perimetri KML) vanno qui.
+# Sono gated da SPID/area riservata e NON sono versionati (vedi .gitignore).
+# Vedi README per il formato atteso e come lanciare l'ingestion (M3).
