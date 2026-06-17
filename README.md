@@ -186,11 +186,26 @@ ritorna lo stesso `reference_id` senza ri-enrichare/ri-emailare. Senza
 degrada a `prior_only` ma la risposta resta 200. La logica è testata con fake
 (`test/api-contract.test.ts`), zero DB/Resend.
 
+## Funnel — `/valutazione` (§12)
+
+State machine multi-step (`lib/funnel/`, **pura e testata**) cablata a `POST
+/api/valutazione`. Raccoglie tutti i campi del contratto §9; branching
+(condizioni→anni), SALTA sugli step opzionali, progress bar, modale exit-intent.
+**Nessun valore mostrato all'utente** (solo conferma + `reference_id`). Stato solo
+in React (no browser storage). Geocoding dietro `GeocodingProvider`
+(`lib/geocoding/`, default Google, **fallback Mock senza chiave**) tramite il
+proxy server-side `/api/geocoding` (la chiave non raggiunge il browser); mappa con
+pin spostabile via Leaflet+OSM. Componente self-contained: la UI di produzione
+in-brand (Claude Design) può sostituirlo consumando lo stesso contratto.
+
+`toApiPayload` è coperto dal test keystone `test/funnel-payload.test.ts`
+(l'output passa `ValuationRequestSchema`).
+
 ## Roadmap (Fase 1)
 
 - [x] **M1** — scaffold Next.js + migrazioni Supabase/PostGIS + seed coefficienti
 - [x] **M2** — motore di valutazione (TS puro) + test Vitest con fixture OMI
 - [x] **M3** — ingestion OMI (`scripts/ingest-omi.ts`) + risoluzione zona PostGIS
 - [x] **M4** — API route `/api/valutazione` (validate→commit→enrich→email→200)
-- [ ] **M5** — funnel funzionante (geocoding dietro interfaccia)
+- [x] **M5** — funnel funzionante `/valutazione` (geocoding dietro interfaccia)
 - [ ] **M6** — dashboard agente (chiusura flywheel)
