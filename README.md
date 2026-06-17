@@ -46,7 +46,7 @@ chiave geocoding, `VALUATION_MODEL_VERSION`.
 
 ## Database (Supabase + PostGIS)
 
-Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0008`
+Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0011`
 (append-only: non modificare una migrazione già spedita, aggiungerne una nuova).
 La baseline consolidata in singolo file è `valutatore_schema.sql`.
 
@@ -141,9 +141,11 @@ lib/
                            #   range, confidence, hash, comparables (scaffold),
                            #   enrich (orchestratore), ports (seam iniettabile)
   schemas/                 # contratto Zod §9 + mapper
-  email/                   # template Resend (M4)
+  api/                     # handleValuation (orchestratore route) + ports
+  email/                   # template puri + sender Resend
+  omi/                     # ingestion + resolver PostGIS (M3)
   geocoding/               # GeocodingProvider + impl (M5)
-  db/                      # client Supabase
+  db/                      # client Supabase + persistenza valuations/coeff
 supabase/migrations/       # SQL versionato (baseline: valutatore_schema.sql)
 scripts/ingest-omi.ts      # ingestion OMI (M3)
 data/omi/                  # file OMI reali (gitignored)
@@ -169,11 +171,26 @@ side-effect proprio):
 
 Output: range + confidenza + breakdown voce-per-voce (`EnrichResult`).
 
+## API — `POST /api/valutazione` (§9)
+
+Pipeline sincrona (`app/api/valutazione/route.ts` → `lib/api/handle-valuation.ts`):
+Zod validate → **insert lead + request COMMITTED prima dell'enrichment** (RPC
+transazionale `create_valuation_request`, atomica + dedup su `input_hash` +
+costruzione `geom`) → `enrich` best-effort → update → email Resend (scheda agente
++ conferma lead) → `200 { reference_id }`.
+
+Garanzie: enrich/email sono best-effort — un loro fallimento **non** fa fallire la
+richiesta né perde il lead (mai 5xx per loro); re-submit idempotente (stesso input)
+ritorna lo stesso `reference_id` senza ri-enrichare/ri-emailare. Senza
+`RESEND_API_KEY` l'invio degrada a logging; senza OMI ingerito l'enrichment
+degrada a `prior_only` ma la risposta resta 200. La logica è testata con fake
+(`test/api-contract.test.ts`), zero DB/Resend.
+
 ## Roadmap (Fase 1)
 
 - [x] **M1** — scaffold Next.js + migrazioni Supabase/PostGIS + seed coefficienti
 - [x] **M2** — motore di valutazione (TS puro) + test Vitest con fixture OMI
 - [x] **M3** — ingestion OMI (`scripts/ingest-omi.ts`) + risoluzione zona PostGIS
-- [ ] **M4** — API route `/api/valutazione` + email Resend
+- [x] **M4** — API route `/api/valutazione` (validate→commit→enrich→email→200)
 - [ ] **M5** — funnel funzionante (geocoding dietro interfaccia)
 - [ ] **M6** — dashboard agente (chiusura flywheel)
