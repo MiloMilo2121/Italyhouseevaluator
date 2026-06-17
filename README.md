@@ -67,11 +67,50 @@ dipendono). Il set di coefficienti di default attivo è seedato da `0008`.
 > un nuovo set versionato e si sposta il flag `active`, mai modificandone uno
 > esistente (l'`input_hash` delle valutazioni dipende da id+version del set).
 
-## Dati OMI (ingestion — M3)
+## Dati OMI (ingestion)
 
 I file OMI reali (gated da SPID/area riservata) vanno in `data/omi/`
-(gitignored): `VALORI` csv, `ZONE` csv, perimetri `KML`. L'ingestion sarà
-`npm run ingest:omi` (script `scripts/ingest-omi.ts`, Milestone 3).
+(gitignored): `VALORI` csv, `ZONE` csv, perimetri `KML`.
+
+```bash
+# dry-run: pipeline + report, senza scrivere su DB
+npm run ingest:omi -- --dry-run --semestre 2024-2 \
+  --valori data/omi/valori.csv --zone data/omi/zone.csv --kml data/omi/zone.kml
+
+# ingestion reale (upsert idempotente su Supabase)
+npm run ingest:omi -- --semestre 2024-2 \
+  --valori data/omi/valori.csv --zone data/omi/zone.csv --kml data/omi/zone.kml
+```
+
+La pipeline (`lib/omi/`) è pura e gestisce le insidie reali del formato:
+separatore `;`, riga di didascalia iniziale, `;` finale spurio, decimali con
+virgola italiana, encoding forzato UTF-8, locazione 0 → null, join
+VALORI↔ZONE↔perimetri per `LinkZona`. **§8**: le intestazioni CSV sono validate
+all'avvio e l'ingestion fallisce con un messaggio chiaro se il tracciato non
+corrisponde (le costanti `EXPECTED_*_HEADERS` in `lib/omi/csv.ts` sono
+adattabili per semestre).
+
+Bug geometrici noti **gestiti senza crashare** (scartati/segnalati nel report):
+poligoni mal-georeferenziati fuori dal bbox Italia (es. poligono sardo in
+Africa), ring invalidi, e zone senza perimetro (gap tipo provincia di
+Forlì-Cesena → riga senza geometria + flag `missing_geometry`).
+
+Le geometrie vengono scritte via `omi_upsert_quotations` (migrazione 0010) che
+applica `ST_GeomFromGeoJSON → SRID 4326 → ST_MakeValid`. La risoluzione zona usa
+le funzioni spaziali della migrazione 0009 (`ST_Contains`, KNN `<->`) — solo
+recupero candidati; la fallback ladder vive in `lib/omi/resolver.ts` (TS).
+
+### Test d'integrazione spaziale (DB reale)
+
+I test del motore girano senza DB; la risoluzione spaziale reale (PostGIS
+`ST_Contains`) va validata a parte. Con un progetto Supabase di test (migrazioni
+applicate, incl. 0009/0010):
+
+```bash
+OMI_TEST_SUPABASE_URL=... OMI_TEST_SUPABASE_SERVICE_KEY=... npm run test:integration
+```
+
+Senza quelle variabili la suite d'integrazione è saltata.
 
 ## Test
 
@@ -87,10 +126,11 @@ I test del motore (`lib/valuation`) sono in TS puro con **fixture OMI** e un
 **fake resolver** (ray-casting): **zero dipendenza dal DB**.
 
 > ⚠️ I verdi dei test del motore NON validano la risoluzione spaziale reale: il
-> fake resolver usa ray-casting, la produzione userà PostGIS `ST_Contains`
-> (semantica diversa su bordi/multipolygon/buchi). La risoluzione zona va
-> testata su geometrie reali in M3 (bug noti: Forlì-Cesena mancante, poligono
-> sardo mal-georeferenziato, punti sul confine).
+> fake resolver usa ray-casting, la produzione usa PostGIS `ST_Contains`
+> (semantica diversa su bordi/multipolygon/buchi). La risoluzione zona reale si
+> valida con `npm run test:integration` su un DB Supabase di test (vedi sotto).
+> Da estendere con le geometrie reali e i bug noti (Forlì-Cesena, poligono
+> sardo, punti esattamente sul confine).
 
 ## Layout
 
@@ -133,7 +173,7 @@ Output: range + confidenza + breakdown voce-per-voce (`EnrichResult`).
 
 - [x] **M1** — scaffold Next.js + migrazioni Supabase/PostGIS + seed coefficienti
 - [x] **M2** — motore di valutazione (TS puro) + test Vitest con fixture OMI
-- [ ] **M3** — ingestion OMI + risoluzione zona PostGIS
+- [x] **M3** — ingestion OMI (`scripts/ingest-omi.ts`) + risoluzione zona PostGIS
 - [ ] **M4** — API route `/api/valutazione` + email Resend
 - [ ] **M5** — funnel funzionante (geocoding dietro interfaccia)
 - [ ] **M6** — dashboard agente (chiusura flywheel)

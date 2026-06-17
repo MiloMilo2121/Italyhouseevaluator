@@ -1,10 +1,12 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, configDefaults } from 'vitest/config';
 import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts', 'lib/**/*.test.ts'],
+    // I test d'integrazione (DB reale) girano con il config dedicato.
+    exclude: [...configDefaults.exclude, 'test/integration/**'],
     coverage: {
       provider: 'v8',
       include: ['lib/valuation/**'],
