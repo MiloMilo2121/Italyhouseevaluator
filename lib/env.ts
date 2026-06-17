@@ -40,6 +40,15 @@ const serverSchema = z.object({
   // Lookup catastale deterministico (provider OpenAPI-style, seam configurabile).
   CATASTO_BASE_URL: z.string().url().optional(),
   CATASTO_API_KEY: z.string().min(1).optional(),
+  // V2 Step 4: perizia long-context (riusa ANTHROPIC_API_KEY). Default opus.
+  PERIZIA_MODEL: z.string().min(1).optional(),
+  // V2 Step 5: fonti ufficiali comparabili (seam estensibile via COMPS_SOURCE).
+  // Le API reali sono validate in deploy (come Apify/Catasto).
+  COMPS_SOURCE: z.string().min(1).default('apify'),
+  IDEALISTA_DATA_BASE_URL: z.string().url().optional(),
+  IDEALISTA_DATA_API_KEY: z.string().min(1).optional(),
+  IMMOBILIARE_INSIGHTS_BASE_URL: z.string().url().optional(),
+  IMMOBILIARE_INSIGHTS_API_KEY: z.string().min(1).optional(),
   // Gate delle affordance UI (upload/analizza). Default off finché non configurato.
   DOCUMENTI_ENABLED: z
     .enum(['true', 'false'])

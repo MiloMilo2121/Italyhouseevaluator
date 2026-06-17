@@ -2,6 +2,7 @@ import type { AgentCardData } from '@/lib/email/templates';
 import type { ValuationReportData } from '@/lib/report/valuation-report';
 import type { ValuationNarrative } from '@/lib/narration/types';
 import type { CatastoData, DocumentFacts } from '@/lib/documents/types';
+import type { Perizia } from '@/lib/perizia/types';
 import type {
   ComparableContribution,
   ConfidenceLabel,
@@ -61,6 +62,7 @@ export interface DetailRow {
   catasto: CatastoData | null;
   document_facts: DocumentFacts | null;
   documenti_status: string | null;
+  perizia: Perizia | null;
   agent_final_value: number | string | null;
   agent_notes: string | null;
   valuation_status: string;

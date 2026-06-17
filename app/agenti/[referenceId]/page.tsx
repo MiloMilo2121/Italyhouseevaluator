@@ -6,6 +6,7 @@ import { renderValuationReport } from '@/lib/report/valuation-report';
 import { flattenDetailRow, rowToEnrichResult, rowToReportData, type DetailDbRow } from '@/lib/agenti/card';
 import FinalizeForm from './FinalizeForm';
 import NarrateButton from './NarrateButton';
+import PeriziaButton from './PeriziaButton';
 import DocumentsPanel, { type DocItem } from './DocumentsPanel';
 
 export const dynamic = 'force-dynamic';
@@ -43,6 +44,7 @@ export default async function DetailPage({ params }: { params: Promise<{ referen
         <Link href="/agenti">← Torna alla lista</Link>
       </p>
       {canNarrate && <NarrateButton referenceId={row.reference_id} hasNarrative={row.narrative != null} />}
+      {canNarrate && <PeriziaButton referenceId={row.reference_id} hasPerizia={row.perizia != null} />}
       {/* Report deterministico (numeri del motore) + narrazione interleavata se presente */}
       <div dangerouslySetInnerHTML={{ __html: html }} />
       {documentiEnabled && (

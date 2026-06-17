@@ -15,6 +15,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "ingest:omi": "tsx scripts/ingest-omi.ts",
     "ingest:comps": "tsx scripts/ingest-comps.ts",
+    "ingest:official": "tsx scripts/ingest-official.ts",
     "process:documents": "tsx scripts/process-documents.ts"
   },
   "dependencies": {

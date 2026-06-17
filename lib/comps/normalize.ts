@@ -11,7 +11,8 @@ import { round2 } from '@/lib/valuation/util';
 
 export interface RawListing {
   listingId: string;
-  portal: 'immobiliare' | 'idealista';
+  /** Etichetta sorgente (anche namespacing del listing_id): 'immobiliare'|'idealista'|'idealista_data'|… */
+  portal: string;
   price: number | null;
   superficieMq: number | null;
   lat: number | null;
@@ -23,6 +24,9 @@ export interface RawListing {
   ascensore?: boolean | null;
   classeEnergetica?: string | null;
   listingDate?: string | null; // ISO
+  /** Origine prezzo: omesso ⇒ 'annuncio' (offerta, scontata). I dati transazionali
+   *  ufficiali (rogiti/agency) la impostano a 'agency'/'rogito' ⇒ niente sconto. */
+  source?: CompSource;
 }
 
 export interface NormalizedComp {
@@ -66,7 +70,7 @@ export function normalizeListing(raw: RawListing): NormalizedComp | null {
 
   return {
     listing_id: `${raw.portal}:${raw.listingId}`,
-    source: 'annuncio',
+    source: raw.source ?? 'annuncio',
     lat: raw.lat,
     lng: raw.lng,
     comune_code: raw.comuneCode ?? null,
