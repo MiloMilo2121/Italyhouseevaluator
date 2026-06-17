@@ -2,8 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createServerSupabase } from '@/lib/db/supabase-server';
 import { renderValuationReport } from '@/lib/report/valuation-report';
-import { flattenDetailRow, rowToReportData, type DetailDbRow } from '@/lib/agenti/card';
+import { flattenDetailRow, rowToEnrichResult, rowToReportData, type DetailDbRow } from '@/lib/agenti/card';
 import FinalizeForm from './FinalizeForm';
+import NarrateButton from './NarrateButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,13 +22,15 @@ export default async function DetailPage({ params }: { params: Promise<{ referen
   const row = flattenDetailRow(data as unknown as DetailDbRow);
   const html = renderValuationReport(rowToReportData(row)).html;
   const initialValue = row.agent_final_value != null ? Number(row.agent_final_value) : null;
+  const canNarrate = rowToEnrichResult(row) != null;
 
   return (
     <div>
       <p>
         <Link href="/agenti">← Torna alla lista</Link>
       </p>
-      {/* Stessa scheda dell'email agente (DRY) */}
+      {canNarrate && <NarrateButton referenceId={row.reference_id} hasNarrative={row.narrative != null} />}
+      {/* Report deterministico (numeri del motore) + narrazione interleavata se presente */}
       <div dangerouslySetInnerHTML={{ __html: html }} />
       <hr style={{ margin: '24px 0' }} />
       <h3>Chiudi la valutazione (valore finale reale)</h3>

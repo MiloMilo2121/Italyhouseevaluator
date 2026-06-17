@@ -57,4 +57,28 @@ describe('report di valutazione spiegabile (V2)', () => {
     expect(html).toContain('Comparabili non disponibili');
     expect(html).toContain('non disponibile');
   });
+
+  it('interleava la prosa narrata (V2 Step 2) quando presente, coi numeri autorevoli', () => {
+    const e = enrichWith([]);
+    const { html } = renderValuationReport({
+      ...data(e),
+      narrative: {
+        sintesi: 'Sintesi narrata della valutazione.',
+        spiegazione_valore: 'Spiegazione del valore.',
+        commento_comparabili: 'Commento sui comparabili.',
+        contesto_mercato: 'Contesto di mercato locale.',
+        nota_confidenza: 'Nota sulla confidenza.',
+      },
+    });
+    expect(html).toContain('Sintesi narrata della valutazione.');
+    expect(html).toContain('Spiegazione del valore.');
+    expect(html).toContain('Contesto di mercato locale.');
+    expect(html).toContain('assistenza AI'); // attribuzione trasparente
+    expect(html).toContain('312.375'); // i numeri del motore restano autorevoli
+  });
+
+  it('senza narrative non mostra né prosa né nota AI', () => {
+    const { html } = renderValuationReport(data(enrichWith([])));
+    expect(html).not.toContain('assistenza AI');
+  });
 });

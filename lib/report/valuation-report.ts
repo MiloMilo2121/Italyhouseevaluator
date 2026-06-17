@@ -1,10 +1,15 @@
 import type { EnrichResult } from '@/lib/valuation/types';
+import type { ValuationNarrative } from '@/lib/narration/types';
 
 /**
  * Report di valutazione spiegabile (V2, "wow #1"), PURO/HTML pronto-stampa.
  * Range + confidenza onesta, breakdown voce-per-voce e GRIGLIA DI
  * OMOGENEIZZAZIONE dei comparabili (sintetici e ATTRIBUITI: niente foto/
  * descrizioni copiate). Riusabile in dashboard e (versione email) altrove.
+ *
+ * V2 Step 2: se è presente una `narrative` (prosa LLM grounded), le sezioni di
+ * testo vengono interleavate coi numeri AUTOREVOLI calcolati dal motore — l'LLM
+ * spiega, non ricalcola. Senza narrative il report resta sui soli numeri.
  */
 
 const eur = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
@@ -24,6 +29,14 @@ export interface ValuationReportData {
   referenceId: string;
   address: { normalized: string | null; raw: string; comune: string | null; lat: number; lng: number };
   enrich: EnrichResult;
+  /** Prosa LLM grounded (V2 Step 2). Assente/null ⇒ report sui soli numeri. */
+  narrative?: ValuationNarrative | null;
+}
+
+/** Paragrafo di prosa narrata (escaped). Reso solo se il testo è presente. */
+function prose(text: string | undefined): string {
+  if (!text) return '';
+  return `<p style="font-size:14px;line-height:1.5;color:#333;margin:6px 0">${esc(text)}</p>`;
 }
 
 function rangeBlock(e: EnrichResult): string {
@@ -78,33 +91,43 @@ function adjustmentGrid(e: EnrichResult): string {
 }
 
 export function renderValuationReport(data: ValuationReportData): { html: string } {
-  const { enrich: e, address } = data;
+  const { enrich: e, address, narrative: n } = data;
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${address.lat},${address.lng}`;
   const omi =
     e.omi_eur_mq_min != null && e.omi_eur_mq_max != null
       ? `${fmtEurMq(e.omi_eur_mq_min)} – ${fmtEurMq(e.omi_eur_mq_max)}`
       : 'n/d';
 
+  const narratedNote = n
+    ? `<p style="color:#777;font-size:12px;font-style:italic">Relazione narrata generata con assistenza AI sui dati calcolati dal motore.</p>`
+    : '';
+
   const html = `<div style="font-family:system-ui,Arial,sans-serif;max-width:760px;margin:0 auto;color:#222">
     <h2>Valutazione ${esc(data.referenceId)}</h2>
     <p>${esc(address.normalized ?? address.raw)}${address.comune ? `, ${esc(address.comune)}` : ''}
        — <a href="${mapUrl}">mappa</a></p>
+    ${narratedNote}
 
     <h3>Valore stimato</h3>
     ${rangeBlock(e)}
+    ${prose(n?.sintesi)}
     <p style="color:#555;font-size:14px">Superficie commerciale: <strong>${e.superficie_commerciale_mq} m²</strong>
        · €/m² OMI di zona: ${omi} · zona ${esc(e.zona_omi_id ?? 'n/d')} · risoluzione: ${e.fallback_level}</p>
+    ${prose(n?.nota_confidenza)}
 
     <h3>Come si compone</h3>
     ${breakdownTable(e)}
+    ${prose(n?.spiegazione_valore)}
 
     <h3>Comparabili (griglia di omogeneizzazione)</h3>
     ${adjustmentGrid(e)}
+    ${prose(n?.commento_comparabili)}
 
     <h3>Contesto di mercato</h3>
     <p style="font-size:14px;color:#555">Quotazione OMI di zona ${omi}. I prezzi degli annunci sono di offerta
        e vengono scontati per il margine medio di trattativa prima del confronto. La confidenza riflette
        numero, dispersione e freschezza dei comparabili.</p>
+    ${prose(n?.contesto_mercato)}
   </div>`;
 
   return { html };

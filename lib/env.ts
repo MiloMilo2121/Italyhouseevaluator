@@ -20,6 +20,10 @@ const serverSchema = z.object({
   GEOCODING_PROVIDER: z.enum(['google', 'nominatim']).default('google'),
   GOOGLE_PLACES_API_KEY: z.string().min(1).optional(),
   VALUATION_MODEL_VERSION: z.coerce.number().int().positive().default(1),
+  // V2 Step 2: narrazione LLM (on-demand in dashboard). Senza key il
+  // NullNarrator degrada (il report mostra solo i numeri deterministici).
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  NARRATION_MODEL: z.string().min(1).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
