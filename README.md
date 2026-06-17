@@ -46,7 +46,7 @@ chiave geocoding, `VALUATION_MODEL_VERSION`.
 
 ## Database (Supabase + PostGIS)
 
-Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0012`
+Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0014`
 (append-only: non modificare una migrazione già spedita, aggiungerne una nuova).
 La baseline consolidata in singolo file è `valutatore_schema.sql`.
 
@@ -216,6 +216,34 @@ tutto e, via trigger di colonna, possono scrivere **solo** i 4 campi di chiusura
 La logica (`lib/agenti/finalize.ts`, `list.ts`, `card.ts`) è pura e testata; per
 usarla davvero serve un progetto Supabase con un utente agente creato in Auth e
 le migrazioni applicate (l'allow/deny RLS reale si valida su ambiente deployato).
+
+## V2 (Step 1) — Comparabili MCA + report spiegabile
+
+Salto oltre il deterministico OMI, **innesto sullo scaffold esistente** (non rewrite):
+
+- **Motore MCA** (`lib/valuation/comparables.ts`): `reconcile` ora fa la **griglia di
+  omogeneizzazione** (corregge il €/mq di ogni comparabile verso l'immobile via
+  rapporto dei coefficienti di merito), media pesata, **clamp** di sanità sul prior
+  OMI e **shrinkage** `α=n/(n+k)`. Confidenza raffinata da n/dispersione/freschezza.
+- **Sconto offerta→rogito** (`lib/comps/discount.ts`): parametrico per macro-area
+  (Nord-Est ~5% default Veneto), applicato ai soli annunci.
+- **Data path** (`lib/comps/`, `scripts/ingest-comps.ts`, `/api/comps/webhook`):
+  comparabili **comprati via Apify** (Immobiliare.it / Idealista, async+webhook),
+  normalizzati (dedup + outlier IQR), cache su `comps` (mig. 0013). Usati come
+  **input €/mq aggregato interno — mai mirror ripubblicato** (niente foto/descrizioni).
+  Provider PostGIS KNN `SupabaseComparablesProvider`, attivo dietro `COMPS_ENABLED`.
+- **Report spiegabile** (`lib/report/valuation-report.ts`): HTML pronto-stampa con
+  range + confidenza, breakdown, **griglia di omogeneizzazione attribuita** ("fonte:
+  annunci pubblici"), contesto di mercato. Reso nel dettaglio dashboard.
+
+```bash
+# dry-run su un export locale del dataset Apify (nessuna scrittura)
+npm run ingest:comps -- --portal immobiliare --file data/comps/dataset.json --dry-run
+```
+
+> Tetto onesto: una stima online su dati di offerta + OMI plafona a **MdAPE ~6–10%**
+> → l'agente revisiona (flywheel). Logica deterministica calcola, l'LLM (Step 2)
+> narrerà. Apify/DB live sono gated (token/creds), come i file OMI.
 
 ## Roadmap (Fase 1) — ✅ completa
 

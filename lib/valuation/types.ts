@@ -126,7 +126,10 @@ export interface OmiResolution {
   semestre: string | null;
 }
 
-// ---- Comparabili (scaffold Fase 2) ----
+// ---- Comparabili (MCA, Fase 2/V2) ----
+/** Origine del prezzo: 'annuncio' = offerta (va scontata); 'rogito'/'agency' = chiusura. */
+export type CompSource = 'annuncio' | 'rogito' | 'agency';
+
 export interface Comparable {
   id: string;
   distanceMeters: number;
@@ -135,6 +138,13 @@ export interface Comparable {
   saleDate: string;
   stato: OmiStato;
   sameOmiZone: boolean;
+  // Origine + attributi per la griglia di omogeneizzazione (opzionali: assenti ⇒ fattore 1.00).
+  source?: CompSource;
+  piano?: number | null;
+  pianoLabel?: PianoLabel | null;
+  pianiEdificio?: number | null;
+  ascensore?: boolean | null;
+  classeEnergetica?: string | null;
 }
 
 export interface WeightedComparable extends Comparable {
@@ -145,6 +155,19 @@ export interface Estimate {
   min: number;
   max: number;
   pointEstimate: number;
+}
+
+/** Riga della griglia di omogeneizzazione (comparabile sintetico, attribuito). */
+export interface ComparableContribution {
+  id: string;
+  source: CompSource;
+  distanceMeters: number;
+  saleDate: string;
+  stato: OmiStato;
+  rawEurMq: number; // offerta grezza
+  discountedEurMq: number; // dopo sconto offerta→rogito
+  correctedEurMq: number; // dopo omogeneizzazione verso il subject
+  weight: number;
 }
 
 // ---- Superficie ----
@@ -201,4 +224,6 @@ export interface EnrichResult {
   estimate_max: number | null;
   confidence: ConfidenceResult;
   breakdown: BreakdownLine[];
+  /** Griglia di omogeneizzazione MCA (vuota se nessun comparabile). */
+  comparables: ComparableContribution[];
 }

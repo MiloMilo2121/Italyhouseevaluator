@@ -17,10 +17,14 @@ export interface OmiResolver {
   ): Promise<OmiResolution>;
 }
 
-/** Fase 1 ritorna []. Fase 2 = KNN PostGIS su comps. */
+export interface ComparablesQueryOpts {
+  radiusMeters?: number;
+  limit?: number;
+  months?: number;
+  omiZone?: string | null;
+}
+
+/** Fase 1 ritorna []. V2 = KNN PostGIS su comps (SupabaseComparablesProvider). */
 export interface ComparablesProvider {
-  find(
-    subject: SubjectProperty,
-    opts?: { radiusMeters?: number; limit?: number },
-  ): Promise<Comparable[]>;
+  find(subject: SubjectProperty, opts?: ComparablesQueryOpts): Promise<Comparable[]>;
 }

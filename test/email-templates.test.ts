@@ -16,6 +16,7 @@ const enrichSample: EnrichResult = {
     { label: 'Prezzo base zona (OMI Ottimo, 2024-2) × 85 m²', contributo: 327250 },
     { label: 'Classe energetica A', contributo: 16362.5 },
   ],
+  comparables: [],
 };
 
 function cardData(enrich: EnrichResult | null): AgentCardData {

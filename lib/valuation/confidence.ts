@@ -18,6 +18,8 @@ export interface ConfidenceInputs {
   fallbackLevel: FallbackLevel;
   omiRow: OmiQuotationRow | null;
   subject: SubjectProperty;
+  /** Sintesi comparabili (V2): se presenti, raffinano la confidenza (FSD-like). */
+  comps?: { n: number; relDispersion: number; avgMonths: number };
 }
 
 const FALLBACK_PENALTY: Record<FallbackLevel, number> = {
@@ -44,7 +46,7 @@ export function fsdForLabel(label: ConfidenceLabel): number {
 }
 
 export function computeConfidence(inputs: ConfidenceInputs): ConfidenceResult {
-  const { fallbackLevel, omiRow, subject } = inputs;
+  const { fallbackLevel, omiRow, subject, comps } = inputs;
   let score = 100;
 
   score -= FALLBACK_PENALTY[fallbackLevel];
@@ -62,6 +64,15 @@ export function computeConfidence(inputs: ConfidenceInputs): ConfidenceResult {
   if (subject.classeEnergetica == null) score -= 8;
   if (subject.piano == null && subject.pianoLabel == null) score -= 5;
   if (subject.stanze == null) score -= 3;
+
+  // Raffinamento comparabili (V2): più comp ⇒ bonus; dispersione/staleness ⇒ penalità.
+  if (comps && comps.n > 0) {
+    score += Math.min(comps.n, 6) * 3; // fino a +18
+    if (comps.relDispersion > 0.25) score -= 15;
+    else if (comps.relDispersion > 0.15) score -= 8;
+    if (comps.avgMonths > 18) score -= 10;
+    else if (comps.avgMonths > 12) score -= 5;
+  }
 
   score = clamp(score, 0, 100);
   const label = scoreToLabel(score);

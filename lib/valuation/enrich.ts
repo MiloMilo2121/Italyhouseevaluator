@@ -1,5 +1,12 @@
 import { computeMeritCoefficient } from './coefficient';
-import { reconcile, selectComparables, weightComparables } from './comparables';
+import {
+  buildAdjustmentGrid,
+  compsSummary,
+  reconcile,
+  selectComparables,
+  weightComparables,
+} from './comparables';
+import { DEFAULT_MACRO_AREA, type MacroArea } from '@/lib/comps/discount';
 import { computeConfidence } from './confidence';
 import { computeBaseEstimate, condizioniToStato, selectOmiRow } from './omi';
 import { computeRange } from './range';
@@ -20,6 +27,8 @@ export interface EnrichDeps {
   omiResolver: OmiResolver;
   comparablesProvider: ComparablesProvider;
   shrinkageK?: number;
+  /** Macro-area per lo sconto offerta→rogito dei comparabili (default Nord-Est). */
+  marketArea?: MacroArea;
 }
 
 export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promise<EnrichResult> {
@@ -47,20 +56,34 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
   const omiMid = rowSel.row ? (rowSel.row.comprMin + rowSel.row.comprMax) / 2 : null;
   const boxValue = boxAutoValue(w, omiMid, subject.hasGarage);
 
-  // 6. Confidenza.
+  // 6. Comparabili (Fase 1 ⇒ [] ; V2 ⇒ MCA pesato).
+  const k = deps.shrinkageK ?? 5;
+  const macroArea = deps.marketArea ?? DEFAULT_MACRO_AREA;
+  const comps = await selectComparables(subject, comparablesProvider, {
+    omiZone: resolution.zonaOmiId,
+  });
+  const weighted = weightComparables(subject, comps);
+  const summary = compsSummary(comps);
+
+  // 7. Confidenza (raffinata dai comparabili quando presenti).
   const confidence = computeConfidence({
     fallbackLevel: resolution.fallbackLevel,
     omiRow: rowSel.row,
     subject,
+    ...(summary.n > 0 ? { comps: summary } : {}),
   });
 
-  // 7. Range (prior OMI) accoppiato alla confidenza.
+  // 8. Range prior OMI accoppiato alla confidenza + riconciliazione MCA.
   const priorEstimate = computeRange(base.baseMin, base.baseMax, boxValue, confidence, m.range);
-
-  // 8. Comparabili (Fase 1 ⇒ [] ⇒ α=0 ⇒ valore = prior OMI).
-  const comps = await selectComparables(subject, comparablesProvider);
-  const weighted = weightComparables(subject, comps);
-  const finalEstimate = priorEstimate ? reconcile(weighted, priorEstimate) : null;
+  const finalEstimate = priorEstimate
+    ? reconcile(weighted, priorEstimate, {
+        subject,
+        merit: m,
+        surfaceCommercialeMq: surface.superficieCommercialeMq,
+        shrinkageK: k,
+        macroArea,
+      })
+    : null;
 
   // 9. Breakdown voce-per-voce (contributi in € che sommano al point estimate).
   const breakdown = buildBreakdown({
@@ -84,6 +107,7 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
     estimate_max: finalEstimate?.max ?? null,
     confidence,
     breakdown,
+    comparables: buildAdjustmentGrid(weighted, { subject, merit: m, macroArea }),
   };
 }
 

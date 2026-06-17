@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createServerSupabase } from '@/lib/db/supabase-server';
-import { renderAgentCard } from '@/lib/email/templates';
-import { flattenDetailRow, rowToAgentCardData, type DetailDbRow } from '@/lib/agenti/card';
+import { renderValuationReport } from '@/lib/report/valuation-report';
+import { flattenDetailRow, rowToReportData, type DetailDbRow } from '@/lib/agenti/card';
 import FinalizeForm from './FinalizeForm';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export default async function DetailPage({ params }: { params: Promise<{ referen
   if (error || !data) notFound();
 
   const row = flattenDetailRow(data as unknown as DetailDbRow);
-  const html = renderAgentCard(rowToAgentCardData(row)).html;
+  const html = renderValuationReport(rowToReportData(row)).html;
   const initialValue = row.agent_final_value != null ? Number(row.agent_final_value) : null;
 
   return (

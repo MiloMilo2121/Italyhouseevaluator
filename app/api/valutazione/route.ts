@@ -7,6 +7,7 @@ import { loadActiveCoefficientSet } from '@/lib/db/coefficient-sets';
 import { SupabaseOmiQueryClient, type SupabaseRpcClient } from '@/lib/omi/query-supabase';
 import { OmiResolverImpl } from '@/lib/omi/resolver';
 import { emptyComparablesProvider } from '@/lib/valuation/comparables-empty';
+import { SupabaseComparablesProvider } from '@/lib/valuation/comparables-supabase';
 import { createEmailSender } from '@/lib/email/resend';
 import { getServerEnv } from '@/lib/env';
 
@@ -37,13 +38,17 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const env = getServerEnv();
     const client = createServiceClient();
+    const rpcClient = client as unknown as SupabaseRpcClient;
+    // V2: comparabili MCA dietro flag (default off ⇒ stima su base OMI).
+    const comparablesProvider =
+      process.env['COMPS_ENABLED'] === 'true'
+        ? new SupabaseComparablesProvider(rpcClient)
+        : emptyComparablesProvider;
     const result = await handleValuation(parsed.data, {
       persistence: new SupabaseValuationPersistence(client),
       loadCoefficientSet: () => loadActiveCoefficientSet(client),
-      omiResolver: new OmiResolverImpl(
-        new SupabaseOmiQueryClient(client as unknown as SupabaseRpcClient),
-      ),
-      comparablesProvider: emptyComparablesProvider,
+      omiResolver: new OmiResolverImpl(new SupabaseOmiQueryClient(rpcClient)),
+      comparablesProvider,
       emailSender: createEmailSender(),
       modelVersion: env.VALUATION_MODEL_VERSION,
       agentEmail: env.AGENT_NOTIFICATION_EMAIL ?? 'agenti@example.it',

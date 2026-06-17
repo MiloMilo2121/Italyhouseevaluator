@@ -29,6 +29,7 @@ export function enrichResultToUpdate(r: EnrichResult): Record<string, unknown> {
     confidence_label: r.confidence.label,
     confidence_fsd: r.confidence.fsd,
     breakdown: r.breakdown,
+    comparables: r.comparables,
     valuation_status: 'enriched',
     updated_at: new Date().toISOString(),
   };

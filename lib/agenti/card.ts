@@ -1,5 +1,12 @@
 import type { AgentCardData } from '@/lib/email/templates';
-import type { ConfidenceLabel, EnrichResult, FallbackLevel, Intent } from '@/lib/valuation/types';
+import type { ValuationReportData } from '@/lib/report/valuation-report';
+import type {
+  ComparableContribution,
+  ConfidenceLabel,
+  EnrichResult,
+  FallbackLevel,
+  Intent,
+} from '@/lib/valuation/types';
 
 /**
  * Adatta una riga di valuation_requests (+ lead) nei dati per `renderAgentCard`
@@ -47,6 +54,7 @@ export interface DetailRow {
   confidence_label: string | null;
   confidence_fsd: number | string | null;
   breakdown: { label: string; contributo: number }[] | null;
+  comparables: ComparableContribution[] | null;
   agent_final_value: number | string | null;
   agent_notes: string | null;
   valuation_status: string;
@@ -95,6 +103,36 @@ export function rowToEnrichResult(row: DetailRow): EnrichResult | null {
       fsd: num(row.confidence_fsd) ?? 0,
     },
     breakdown: row.breakdown ?? [],
+    comparables: row.comparables ?? [],
+  };
+}
+
+/** Dati per il report di valutazione (dashboard). Costruisce un EnrichResult
+ * "non disponibile" quando la richiesta non è ancora arricchita. */
+export function rowToReportData(row: DetailRow): ValuationReportData {
+  const enrich: EnrichResult = rowToEnrichResult(row) ?? {
+    superficie_commerciale_mq: num(row.superficie_commerciale_mq) ?? 0,
+    zona_omi_id: row.zona_omi_id,
+    fallback_level: (row.fallback_level as FallbackLevel) ?? 'prior_only',
+    omi_eur_mq_min: null,
+    omi_eur_mq_max: null,
+    coefficients_applied: {},
+    estimate_min: null,
+    estimate_max: null,
+    confidence: { score: 0, label: 'Bassa', fsd: 0 },
+    breakdown: [],
+    comparables: [],
+  };
+  return {
+    referenceId: row.reference_id,
+    address: {
+      normalized: row.address_normalized,
+      raw: row.address_raw,
+      comune: row.comune,
+      lat: row.lat ?? 0,
+      lng: row.lng ?? 0,
+    },
+    enrich,
   };
 }
 
