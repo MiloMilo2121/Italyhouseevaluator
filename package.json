@@ -16,7 +16,8 @@
     "ingest:omi": "tsx scripts/ingest-omi.ts",
     "ingest:comps": "tsx scripts/ingest-comps.ts",
     "ingest:official": "tsx scripts/ingest-official.ts",
-    "process:documents": "tsx scripts/process-documents.ts"
+    "process:documents": "tsx scripts/process-documents.ts",
+    "render:mock": "tsx scripts/render-mock.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",

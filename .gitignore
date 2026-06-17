@@ -38,3 +38,6 @@ yarn-error.log*
 # supabase local
 /supabase/.branches
 /supabase/.temp
+
+# anteprima generata (artefatto, rigenerabile con `npm run render:mock`)
+/mock-preview.html
