@@ -46,7 +46,7 @@ chiave geocoding, `VALUATION_MODEL_VERSION`.
 
 ## Database (Supabase + PostGIS)
 
-Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0011`
+Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0012`
 (append-only: non modificare una migrazione già spedita, aggiungerne una nuova).
 La baseline consolidata in singolo file è `valutatore_schema.sql`.
 
@@ -201,11 +201,27 @@ in-brand (Claude Design) può sostituirlo consumando lo stesso contratto.
 `toApiPayload` è coperto dal test keystone `test/funnel-payload.test.ts`
 (l'output passa `ValuationRequestSchema`).
 
-## Roadmap (Fase 1)
+## Dashboard agente — `/agenti` (§11)
+
+Area riservata (Supabase Auth via `@supabase/ssr`, cookie session) protetta dal
+`middleware.ts` (redirect a `/agenti/login` se non autenticato; `getClaims()`).
+Lista lead/valutazioni ordinata per priorità intent + data; dettaglio che riusa
+la **stessa scheda dell'email agente** (`renderAgentCard`) + form per inserire il
+**valore finale reale** (`agent_final_value`/`agent_notes` → `valuation_status='completed'`):
+è la **chiusura del flywheel**, i dati reali per ricalibrare il modello.
+
+Sicurezza: **RLS** (migrazione 0012) — l'API pubblica usa la service-role key
+(bypassa RLS, insert del funnel intatti); gli agenti (`authenticated`) leggono
+tutto e, via trigger di colonna, possono scrivere **solo** i 4 campi di chiusura.
+La logica (`lib/agenti/finalize.ts`, `list.ts`, `card.ts`) è pura e testata; per
+usarla davvero serve un progetto Supabase con un utente agente creato in Auth e
+le migrazioni applicate (l'allow/deny RLS reale si valida su ambiente deployato).
+
+## Roadmap (Fase 1) — ✅ completa
 
 - [x] **M1** — scaffold Next.js + migrazioni Supabase/PostGIS + seed coefficienti
 - [x] **M2** — motore di valutazione (TS puro) + test Vitest con fixture OMI
 - [x] **M3** — ingestion OMI (`scripts/ingest-omi.ts`) + risoluzione zona PostGIS
 - [x] **M4** — API route `/api/valutazione` (validate→commit→enrich→email→200)
 - [x] **M5** — funnel funzionante `/valutazione` (geocoding dietro interfaccia)
-- [ ] **M6** — dashboard agente (chiusura flywheel)
+- [x] **M6** — dashboard agente `/agenti` (auth + RLS + chiusura flywheel)
