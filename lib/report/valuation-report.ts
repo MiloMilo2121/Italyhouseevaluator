@@ -1,5 +1,6 @@
 import type { EnrichResult } from '@/lib/valuation/types';
 import type { ValuationNarrative } from '@/lib/narration/types';
+import type { CatastoData, DocumentFacts } from '@/lib/documents/types';
 
 /**
  * Report di valutazione spiegabile (V2, "wow #1"), PURO/HTML pronto-stampa.
@@ -31,6 +32,9 @@ export interface ValuationReportData {
   enrich: EnrichResult;
   /** Prosa LLM grounded (V2 Step 2). Assente/null ⇒ report sui soli numeri. */
   narrative?: ValuationNarrative | null;
+  /** Fatti documentali (V2 Step 3): lookup catastale + riconciliazione. */
+  catasto?: CatastoData | null;
+  documentFacts?: DocumentFacts | null;
 }
 
 /** Paragrafo di prosa narrata (escaped). Reso solo se il testo è presente. */
@@ -90,6 +94,74 @@ function adjustmentGrid(e: EnrichResult): string {
       offerta corretti per lo scarto offerta→rogito e omogeneizzati verso l'immobile in esame.</p>`;
 }
 
+function show(v: unknown): string {
+  return v == null || v === '' ? 'n/d' : String(v);
+}
+
+/** Sezione "Documenti & Catasto" (V2 Step 3). Resa solo se ci sono fatti documentali. */
+function documentiSection(
+  catasto: CatastoData | null | undefined,
+  facts: DocumentFacts | null | undefined,
+): string {
+  if (catasto == null && facts == null) return '';
+  const parts: string[] = ['<h3>Documenti &amp; Catasto</h3>'];
+
+  if (catasto) {
+    const rows: string[] = [];
+    const add = (label: string, v: string | number | null): void => {
+      if (v != null && v !== '') {
+        rows.push(
+          `<tr><td style="padding:4px 8px;border-top:1px solid #eee">${esc(label)}</td>
+           <td style="padding:4px 8px;border-top:1px solid #eee;text-align:right">${esc(String(v))}</td></tr>`,
+        );
+      }
+    };
+    add('Categoria catastale', catasto.categoria);
+    add('Classe', catasto.classe);
+    add('Consistenza (vani)', catasto.consistenzaVani);
+    add('Rendita', catasto.renditaEuro != null ? fmtEur(catasto.renditaEuro) : null);
+    add('Superficie catastale', catasto.superficieCatastaleMq != null ? `${catasto.superficieCatastaleMq} m²` : null);
+    const ident = [catasto.foglio, catasto.particella, catasto.subalterno].filter(Boolean).join(' / ');
+    add('Foglio / Particella / Sub', ident || null);
+    if (rows.length) {
+      parts.push(`<table style="border-collapse:collapse;width:100%;font-size:14px"><tbody>${rows.join('')}</tbody></table>`);
+    } else {
+      parts.push('<p style="color:#666;font-size:13px">Nessun dato catastale disponibile.</p>');
+    }
+  }
+
+  if (facts) {
+    if (facts.appliedOverrides.length > 0) {
+      const items = facts.appliedOverrides
+        .map(
+          (o) =>
+            `<li><strong>${esc(o.field)}</strong> → ${esc(show(o.value))}
+             <span style="color:#777">(${esc(o.sourceDocument)}, confidenza ${esc(o.confidence)}): ${esc(o.justification)}</span></li>`,
+        )
+        .join('');
+      parts.push(
+        `<p style="font-size:14px;margin:10px 0 4px"><strong>Correzioni applicate ai dati dichiarati</strong> — la stima è stata ricalcolata:</p>
+         <ul style="font-size:14px;color:#333;margin:0">${items}</ul>`,
+      );
+    }
+    if (facts.dubbi.length > 0) {
+      const items = facts.dubbi
+        .map(
+          (d) =>
+            `<li>${esc(d.campo)}: dichiarato <em>${esc(show(d.dichiarato))}</em> vs rilevato <em>${esc(show(d.rilevato))}</em> — ${esc(d.nota)}</li>`,
+        )
+        .join('');
+      parts.push(
+        `<p style="font-size:14px;margin:10px 0 4px"><strong>Dubbi da verificare</strong> — non applicati automaticamente:</p>
+         <ul style="font-size:14px;color:#a0410a;margin:0">${items}</ul>`,
+      );
+    }
+    if (facts.sintesi) parts.push(prose(facts.sintesi));
+  }
+
+  return parts.join('\n');
+}
+
 export function renderValuationReport(data: ValuationReportData): { html: string } {
   const { enrich: e, address, narrative: n } = data;
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${address.lat},${address.lng}`;
@@ -122,6 +194,8 @@ export function renderValuationReport(data: ValuationReportData): { html: string
     <h3>Comparabili (griglia di omogeneizzazione)</h3>
     ${adjustmentGrid(e)}
     ${prose(n?.commento_comparabili)}
+
+    ${documentiSection(data.catasto, data.documentFacts)}
 
     <h3>Contesto di mercato</h3>
     <p style="font-size:14px;color:#555">Quotazione OMI di zona ${omi}. I prezzi degli annunci sono di offerta

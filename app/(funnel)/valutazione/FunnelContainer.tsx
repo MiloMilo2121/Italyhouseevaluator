@@ -16,6 +16,7 @@ import type { ResolvedPlace } from '@/lib/geocoding/types';
 import AddressAutocomplete from './components/AddressAutocomplete';
 import ProgressBar from './components/ProgressBar';
 import ExitIntentModal from './components/ExitIntentModal';
+import DocumentUpload from './components/DocumentUpload';
 
 const MapPicker = dynamic(() => import('./components/MapPicker'), {
   ssr: false,
@@ -182,6 +183,7 @@ export default function FunnelContainer() {
           valutazione completa del tuo immobile.
         </p>
         <p style={{ color: '#888', fontSize: 14 }}>Riferimento: {referenceId}</p>
+        <DocumentUpload referenceId={referenceId} />
       </main>
     );
   }

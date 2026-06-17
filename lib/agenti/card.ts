@@ -1,6 +1,7 @@
 import type { AgentCardData } from '@/lib/email/templates';
 import type { ValuationReportData } from '@/lib/report/valuation-report';
 import type { ValuationNarrative } from '@/lib/narration/types';
+import type { CatastoData, DocumentFacts } from '@/lib/documents/types';
 import type {
   ComparableContribution,
   ConfidenceLabel,
@@ -57,6 +58,9 @@ export interface DetailRow {
   breakdown: { label: string; contributo: number }[] | null;
   comparables: ComparableContribution[] | null;
   narrative: ValuationNarrative | null;
+  catasto: CatastoData | null;
+  document_facts: DocumentFacts | null;
+  documenti_status: string | null;
   agent_final_value: number | string | null;
   agent_notes: string | null;
   valuation_status: string;
@@ -136,6 +140,8 @@ export function rowToReportData(row: DetailRow): ValuationReportData {
     },
     enrich,
     narrative: row.narrative,
+    catasto: row.catasto,
+    documentFacts: row.document_facts,
   };
 }
 

@@ -14,7 +14,8 @@
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "ingest:omi": "tsx scripts/ingest-omi.ts",
-    "ingest:comps": "tsx scripts/ingest-comps.ts"
+    "ingest:comps": "tsx scripts/ingest-comps.ts",
+    "process:documents": "tsx scripts/process-documents.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.104.2",

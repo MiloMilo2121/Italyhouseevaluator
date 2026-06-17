@@ -24,6 +24,27 @@ const serverSchema = z.object({
   // NullNarrator degrada (il report mostra solo i numeri deterministici).
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
   NARRATION_MODEL: z.string().min(1).optional(),
+  // V2 Step 3 (Filone 2): document intelligence. Tutto gated/null-degrade:
+  // senza le chiavi gli estrattori ritornano null e il pipeline doc resta inerte.
+  // Vision (planimetrie/APE) + reconciler usano ANTHROPIC_API_KEY sopra.
+  VISION_MODEL: z.string().min(1).optional(),
+  RECONCILER_MODEL: z.string().min(1).optional(),
+  // 'parse' = messages.parse + structured output (default); 'create' = fallback
+  // messages.create + JSON.parse manuale (se il combo PDF+structured output
+  // dovesse comportarsi diversamente lato server).
+  VISION_PARSE_MODE: z.enum(['parse', 'create']).default('parse'),
+  // Trascrizione note vocali (OpenAI Whisper). Nuovo fornitore, gated.
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  OPENAI_BASE_URL: z.string().url().optional(),
+  WHISPER_MODEL: z.string().min(1).optional(),
+  // Lookup catastale deterministico (provider OpenAPI-style, seam configurabile).
+  CATASTO_BASE_URL: z.string().url().optional(),
+  CATASTO_API_KEY: z.string().min(1).optional(),
+  // Gate delle affordance UI (upload/analizza). Default off finché non configurato.
+  DOCUMENTI_ENABLED: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;

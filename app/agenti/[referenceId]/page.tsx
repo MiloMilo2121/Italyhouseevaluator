@@ -1,10 +1,12 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createServerSupabase } from '@/lib/db/supabase-server';
+import { getServerEnv } from '@/lib/env';
 import { renderValuationReport } from '@/lib/report/valuation-report';
 import { flattenDetailRow, rowToEnrichResult, rowToReportData, type DetailDbRow } from '@/lib/agenti/card';
 import FinalizeForm from './FinalizeForm';
 import NarrateButton from './NarrateButton';
+import DocumentsPanel, { type DocItem } from './DocumentsPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +26,17 @@ export default async function DetailPage({ params }: { params: Promise<{ referen
   const initialValue = row.agent_final_value != null ? Number(row.agent_final_value) : null;
   const canNarrate = rowToEnrichResult(row) != null;
 
+  const documentiEnabled = getServerEnv().DOCUMENTI_ENABLED;
+  let documents: DocItem[] = [];
+  if (documentiEnabled) {
+    const { data: docsData } = await supabase
+      .from('valuation_documents')
+      .select('id, kind, status, mime, transcript, error')
+      .eq('reference_id', referenceId)
+      .order('created_at', { ascending: true });
+    documents = (docsData ?? []) as DocItem[];
+  }
+
   return (
     <div>
       <p>
@@ -32,6 +45,13 @@ export default async function DetailPage({ params }: { params: Promise<{ referen
       {canNarrate && <NarrateButton referenceId={row.reference_id} hasNarrative={row.narrative != null} />}
       {/* Report deterministico (numeri del motore) + narrazione interleavata se presente */}
       <div dangerouslySetInnerHTML={{ __html: html }} />
+      {documentiEnabled && (
+        <DocumentsPanel
+          referenceId={row.reference_id}
+          documents={documents}
+          documentiStatus={row.documenti_status}
+        />
+      )}
       <hr style={{ margin: '24px 0' }} />
       <h3>Chiudi la valutazione (valore finale reale)</h3>
       <p style={{ color: '#666', fontSize: 13 }}>
