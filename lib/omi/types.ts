@@ -29,11 +29,13 @@ export interface ParsedZone {
   zonaDescr: string | null;
 }
 
-/** Geometria di una zona estratta dal KML, dopo sanificazione. */
+/** Geometria di una zona estratta dal KML.
+ *  Struttura = coordinate GeoJSON MultiPolygon: lista di poligoni, ognuno
+ *  composto da anello esterno + eventuali fori (innerBoundaryIs).
+ *  polygons[i] = [anelloEsterno, foro1, foro2, …]; ogni anello è [lng,lat][]. */
 export interface ParsedGeometry {
   linkZona: string;
-  /** Anelli del (multi)poligono: array di ring, ognuno [lng, lat][]. */
-  rings: [number, number][][];
+  polygons: [number, number][][][];
 }
 
 /** Riga pronta per l'upsert in omi_quotations (geometria come GeoJSON). */
@@ -60,7 +62,14 @@ export interface GeoJsonMultiPolygon {
 
 /** Motivo di scarto/segnalazione di una geometria o riga. */
 export interface IngestionFlag {
-  kind: 'geometry_outside_italy' | 'geometry_invalid_ring' | 'missing_geometry' | 'malformed_row' | 'unknown_stato';
+  kind:
+    | 'geometry_outside_italy'
+    | 'geometry_invalid_ring'
+    | 'geometry_key_collision'
+    | 'missing_geometry'
+    | 'malformed_row'
+    | 'unknown_stato'
+    | 'unlabeled_placemark';
   linkZona: string | null;
   detail: string;
 }

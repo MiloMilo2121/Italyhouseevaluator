@@ -1,5 +1,5 @@
 import { EXPECTED_VALORI_HEADERS, EXPECTED_ZONE_HEADERS, parseOmiCsv } from './csv';
-import { ringsToMultiPolygon, sanitizeZoneRings } from './geometry';
+import { polygonsToMultiPolygon, sanitizeZonePolygons } from './geometry';
 import { parseKmlGeometries } from './kml';
 import {
   parseComprValue,
@@ -96,14 +96,24 @@ export function buildGeometryMap(kml: string): {
   map: Map<string, GeoJsonMultiPolygon>;
   flags: IngestionFlag[];
 } {
-  const { geometries } = parseKmlGeometries(kml);
+  const { geometries, unlabeledPlacemarks } = parseKmlGeometries(kml);
   const map = new Map<string, GeoJsonMultiPolygon>();
   const flags: IngestionFlag[] = [];
 
+  if (unlabeledPlacemarks > 0) {
+    flags.push({ kind: 'unlabeled_placemark', linkZona: null, detail: `${unlabeledPlacemarks} placemark senza chiave zona valida` });
+  }
+
   for (const g of geometries) {
-    const { rings, flags: geomFlags } = sanitizeZoneRings(g.linkZona, g.rings);
+    const { polygons, flags: geomFlags } = sanitizeZonePolygons(g.linkZona, g.polygons);
     flags.push(...geomFlags);
-    if (rings != null) map.set(g.linkZona, ringsToMultiPolygon(rings));
+    if (polygons == null) continue;
+    // Collisione di chiave geometrica: due placemark per la stessa zona (raro;
+    // l'ultimo vince come prima, ma ora è segnalato invece che silenzioso).
+    if (map.has(g.linkZona)) {
+      flags.push({ kind: 'geometry_key_collision', linkZona: g.linkZona, detail: 'più perimetri per la stessa chiave zona' });
+    }
+    map.set(g.linkZona, polygonsToMultiPolygon(polygons));
   }
 
   return { map, flags };

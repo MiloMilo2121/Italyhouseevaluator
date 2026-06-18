@@ -16,6 +16,14 @@ import type { GeoJsonMultiPolygon, IngestionReport, OmiUpsertRow } from '@/lib/o
 import type { SupabaseRpcClient } from '@/lib/omi/query-supabase';
 import { createServiceClient } from '@/lib/db/client';
 
+// I runner standalone (tsx) non passano per il dotenv di Next: carico .env.local
+// esplicitamente, così `npm run ingest:omi` trova le env Supabase out-of-the-box.
+try {
+  (process as unknown as { loadEnvFile: (p: string) => void }).loadEnvFile('.env.local');
+} catch {
+  // file assente o Node senza loadEnvFile: si usano le env già nell'ambiente.
+}
+
 interface Args {
   semestre: string;
   valori: string;
@@ -51,13 +59,28 @@ function buildGeometryMapFromDir(dir: string): Map<string, GeoJsonMultiPolygon> 
   const files = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.kml'));
   const map = new Map<string, GeoJsonMultiPolygon>();
   let done = 0;
+  let unreadable = 0;
+  let collisions = 0;
   for (const file of files) {
-    const kml = readFileSync(join(dir, file), 'utf-8');
+    let kml: string;
+    try {
+      kml = readFileSync(join(dir, file), 'utf-8');
+    } catch (err) {
+      // Un file illeggibile non deve abortire l'intera build di 7887 file.
+      unreadable++;
+      console.warn(`  ⚠ KML non leggibile, saltato: ${file} (${err instanceof Error ? err.message : err})`);
+      continue;
+    }
     const { map: fileMap } = buildGeometryMap(kml);
-    for (const [k, v] of fileMap) map.set(k, v);
+    for (const [k, v] of fileMap) {
+      if (map.has(k)) collisions++;
+      map.set(k, v);
+    }
     if (++done % 500 === 0) console.log(`  KML ${done}/${files.length} (${map.size} zone)`);
   }
-  console.log(`  KML ${files.length}/${files.length} → ${map.size} zone con geometria valida`);
+  console.log(`  KML ${done}/${files.length} → ${map.size} zone con geometria valida`);
+  if (unreadable > 0) console.warn(`  ⚠ ${unreadable} file KML non leggibili saltati`);
+  if (collisions > 0) console.warn(`  ⚠ ${collisions} collisioni di chiave zona tra file (ultimo vince)`);
   return map;
 }
 
@@ -93,17 +116,51 @@ function printReport(report: IngestionReport): void {
   }
 }
 
-async function upsertInBatches(rows: OmiUpsertRow[], batchSize = 500): Promise<number> {
+interface UpsertOutcome {
+  total: number;
+  droppedGeom: string[]; // link_zona reinseriti senza geometria (geom degenere)
+  failed: string[]; // link_zona non inseribili nemmeno senza geometria
+}
+
+/** Inserisce una singola riga; se fallisce, ritenta senza geometria (geometria
+ *  degenere che ST_MakeValid trasforma in GeometryCollection ⇒ rifiutata dalla
+ *  colonna MultiPolygon). Preserva sempre la quotazione €/mq. */
+async function upsertSingleRow(
+  client: SupabaseRpcClient,
+  row: OmiUpsertRow,
+): Promise<'ok' | 'ok-nogeom' | 'fail'> {
+  const first = await client.rpc('omi_upsert_quotations', { p_rows: [row] });
+  if (!first.error) return 'ok';
+  const retry = await client.rpc('omi_upsert_quotations', { p_rows: [{ ...row, geom_geojson: null }] });
+  return retry.error ? 'fail' : 'ok-nogeom';
+}
+
+/** Upsert resiliente: batch normale; su errore di batch (es. una geom degenere)
+ *  ripiega riga-per-riga senza abortire l'intera ingestion. */
+async function upsertInBatches(rows: OmiUpsertRow[], batchSize = 200): Promise<UpsertOutcome> {
   const client = createServiceClient() as unknown as SupabaseRpcClient;
-  let total = 0;
+  const out: UpsertOutcome = { total: 0, droppedGeom: [], failed: [] };
   for (let i = 0; i < rows.length; i += batchSize) {
     const batch = rows.slice(i, i + batchSize);
-    const { data, error } = await client.rpc('omi_upsert_quotations', { p_rows: batch });
-    if (error) throw new Error(`Upsert batch ${i / batchSize} fallito: ${error.message}`);
-    total += typeof data === 'number' ? data : batch.length;
-    console.log(`  upsert ${Math.min(i + batchSize, rows.length)}/${rows.length}`);
+    const { error } = await client.rpc('omi_upsert_quotations', { p_rows: batch });
+    if (!error) {
+      out.total += batch.length;
+    } else {
+      console.warn(`  ⚠ batch ${i / batchSize} fallito (${error.message}); ripiego riga-per-riga`);
+      for (const row of batch) {
+        const r = await upsertSingleRow(client, row);
+        if (r === 'fail') out.failed.push(row.link_zona);
+        else {
+          out.total += 1;
+          if (r === 'ok-nogeom') out.droppedGeom.push(row.link_zona);
+        }
+      }
+    }
+    if ((i / batchSize) % 10 === 0 || i + batchSize >= rows.length) {
+      console.log(`  upsert ${Math.min(i + batchSize, rows.length)}/${rows.length}`);
+    }
   }
-  return total;
+  return out;
 }
 
 async function main(): Promise<void> {
@@ -137,8 +194,18 @@ async function main(): Promise<void> {
   }
 
   console.log('\nUpsert su Supabase…');
-  const upserted = await upsertInBatches(rows);
-  console.log(`\n✓ Ingestion completata: ${upserted} righe upsertate (semestre ${report.semestre}).`);
+  const { total, droppedGeom, failed } = await upsertInBatches(rows);
+  console.log(`\n✓ Ingestion completata: ${total} righe upsertate (semestre ${report.semestre}).`);
+  if (droppedGeom.length > 0) {
+    console.warn(
+      `  ⚠ ${droppedGeom.length} righe inserite senza geometria (geom degenere ⇒ fallback comune). ` +
+        `Applicare la migrazione 0022 per recuperarle.`,
+    );
+  }
+  if (failed.length > 0) {
+    console.error(`  ✗ ${failed.length} righe NON inserite: ${failed.slice(0, 10).join(', ')}${failed.length > 10 ? '…' : ''}`);
+    process.exitCode = 1;
+  }
 }
 
 main().catch((err: unknown) => {

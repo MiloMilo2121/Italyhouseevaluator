@@ -49,50 +49,63 @@ export function closeRing(ring: [number, number][]): [number, number][] {
 }
 
 export interface SanitizeResult {
-  rings: [number, number][][] | null;
+  /** Poligoni sanificati (coordinate GeoJSON MultiPolygon) o null se nessuno valido. */
+  polygons: [number, number][][][] | null;
   flags: IngestionFlag[];
 }
 
 /**
- * Sanifica i ring di una zona: chiude i ring aperti, scarta quelli con troppi
- * pochi vertici, e scarta l'intera geometria se il suo centroide cade fuori dal
- * bounding box dell'Italia (bug del poligono in Africa).
+ * Sanifica i poligoni di una zona RISPETTANDO I FORI: per ogni poligono chiude e
+ * valida l'anello esterno (scarta il poligono se invalido) e i fori (scarta solo
+ * il foro invalido, non il poligono). Scarta l'intera geometria se il centroide
+ * del primo esterno cade fuori dal bbox Italia (bug del poligono in Africa).
  */
-export function sanitizeZoneRings(linkZona: string, rawRings: [number, number][][]): SanitizeResult {
+export function sanitizeZonePolygons(
+  linkZona: string,
+  rawPolygons: [number, number][][][],
+): SanitizeResult {
   const flags: IngestionFlag[] = [];
-  const valid: [number, number][][] = [];
+  const valid: [number, number][][][] = [];
 
-  for (const raw of rawRings) {
-    const ring = closeRing(raw);
-    if (!isValidRing(ring)) {
-      flags.push({ kind: 'geometry_invalid_ring', linkZona, detail: `ring con ${raw.length} vertici scartato` });
+  for (const poly of rawPolygons) {
+    const [rawOuter, ...rawHoles] = poly;
+    if (rawOuter == null) continue;
+    const outer = closeRing(rawOuter);
+    if (!isValidRing(outer)) {
+      flags.push({ kind: 'geometry_invalid_ring', linkZona, detail: `esterno con ${rawOuter.length} vertici scartato` });
       continue;
     }
-    valid.push(ring);
+    const rings: [number, number][][] = [outer];
+    for (const rawHole of rawHoles) {
+      const hole = closeRing(rawHole);
+      if (isValidRing(hole)) rings.push(hole);
+      else flags.push({ kind: 'geometry_invalid_ring', linkZona, detail: `foro con ${rawHole.length} vertici scartato` });
+    }
+    valid.push(rings);
   }
 
   if (valid.length === 0) {
-    return { rings: null, flags };
+    return { polygons: null, flags };
   }
 
-  // Controllo bbox Italia sul centroide del primo ring (anti-Africa).
-  const centroid = ringCentroid(valid[0]!);
+  // Controllo bbox Italia sul centroide del primo esterno (anti-Africa).
+  const centroid = ringCentroid(valid[0]![0]!);
   if (!isPointInItaly(centroid)) {
     flags.push({
       kind: 'geometry_outside_italy',
       linkZona,
       detail: `centroide (${centroid[0].toFixed(3)}, ${centroid[1].toFixed(3)}) fuori dall'Italia`,
     });
-    return { rings: null, flags };
+    return { polygons: null, flags };
   }
 
-  return { rings: valid, flags };
+  return { polygons: valid, flags };
 }
 
-/** Converte i ring sanificati in un GeoJSON MultiPolygon (un poligono per ring). */
-export function ringsToMultiPolygon(rings: [number, number][][]): GeoJsonMultiPolygon {
+/** Converte i poligoni sanificati (esterno + fori) in un GeoJSON MultiPolygon. */
+export function polygonsToMultiPolygon(polygons: [number, number][][][]): GeoJsonMultiPolygon {
   return {
     type: 'MultiPolygon',
-    coordinates: rings.map((ring) => [ring]),
+    coordinates: polygons,
   };
 }

@@ -17,6 +17,9 @@ const PLACEMARK_RE = /<Placemark\b[\s\S]*?<\/Placemark>/g;
 const LINKZONA_SIMPLEDATA_RE = /<SimpleData\s+name="LinkZona">([\s\S]*?)<\/SimpleData>/i;
 const NAME_RE = /<name>([\s\S]*?)<\/name>/i;
 const COORDS_RE = /<coordinates>([\s\S]*?)<\/coordinates>/gi;
+const POLYGON_RE = /<Polygon\b[\s\S]*?<\/Polygon>/gi;
+const OUTER_RE = /<outerBoundaryIs\b[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>[\s\S]*?<\/outerBoundaryIs>/i;
+const INNER_RE = /<innerBoundaryIs\b[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>[\s\S]*?<\/innerBoundaryIs>/gi;
 
 /** Estrae il <value> di un <Data name="KEY"> dall'ExtendedData (case-insensitive sul name). */
 function extractDataValue(placemark: string, name: string): string | null {
@@ -44,10 +47,14 @@ function extractLinkZona(placemark: string): string | null {
   const codCom = extractDataValue(placemark, 'CODCOM');
   const codZona = extractDataValue(placemark, 'CODZONA');
   if (codCom && codZona) return `${codCom}_${codZona}`.toUpperCase();
+  // Fail-loud: se l'ExtendedData OMI è presente ma parziale (uno dei due
+  // mancante/vuoto) NON si ripiega su <name> — fabbricherebbe una chiave fantasma
+  // che non combacia mai col VALORI. Si scarta (conteggiato come unlabeled).
+  if (codCom !== null || codZona !== null) return null;
   // 2. Legacy: SimpleData LinkZona.
   const sd = placemark.match(LINKZONA_SIMPLEDATA_RE);
   if (sd?.[1]?.trim()) return sd[1].trim();
-  // 3. Fallback: <name>.
+  // 3. Fallback: <name> (solo KML senza ExtendedData OMI).
   const nm = placemark.match(NAME_RE);
   if (nm?.[1]?.trim()) return nm[1].trim();
   return null;
@@ -57,6 +64,46 @@ export interface KmlParseResult {
   geometries: ParsedGeometry[];
   /** Placemark senza LinkZona riconoscibile. */
   unlabeledPlacemarks: number;
+}
+
+/**
+ * Estrae i poligoni di un Placemark rispettando i fori: per ogni <Polygon>
+ * l'anello esterno (outerBoundaryIs) e i fori (innerBoundaryIs). Fallback: se un
+ * blocco non usa outer/innerBoundaryIs, il primo <coordinates> è l'esterno e gli
+ * altri sono fori; se non ci sono <Polygon>, ogni <coordinates> del placemark è
+ * un poligono separato (compatibilità con KML semplificati).
+ */
+function extractPolygons(placemark: string): [number, number][][][] {
+  const polygons: [number, number][][][] = [];
+  const polygonBlocks = placemark.match(POLYGON_RE) ?? [];
+
+  for (const block of polygonBlocks) {
+    const outerMatch = block.match(OUTER_RE);
+    let outer = outerMatch ? parseCoordinates(outerMatch[1] ?? '') : [];
+    const holes: [number, number][][] = [];
+    for (const m of block.matchAll(INNER_RE)) {
+      const hole = parseCoordinates(m[1] ?? '');
+      if (hole.length > 0) holes.push(hole);
+    }
+    // Fallback per blocchi senza outer/innerBoundaryIs espliciti.
+    if (outer.length === 0) {
+      const rings = [...block.matchAll(COORDS_RE)].map((m) => parseCoordinates(m[1] ?? '')).filter((r) => r.length > 0);
+      if (rings.length === 0) continue;
+      outer = rings[0]!;
+      holes.push(...rings.slice(1));
+    }
+    polygons.push([outer, ...holes]);
+  }
+
+  // Nessun <Polygon>: ogni <coordinates> del placemark = un poligono a sé.
+  if (polygons.length === 0) {
+    for (const m of placemark.matchAll(COORDS_RE)) {
+      const ring = parseCoordinates(m[1] ?? '');
+      if (ring.length > 0) polygons.push([ring]);
+    }
+  }
+
+  return polygons;
 }
 
 export function parseKmlGeometries(kml: string): KmlParseResult {
@@ -70,12 +117,8 @@ export function parseKmlGeometries(kml: string): KmlParseResult {
       unlabeledPlacemarks++;
       continue;
     }
-    const rings: [number, number][][] = [];
-    for (const m of placemark.matchAll(COORDS_RE)) {
-      const ring = parseCoordinates(m[1] ?? '');
-      if (ring.length > 0) rings.push(ring);
-    }
-    if (rings.length > 0) geometries.push({ linkZona, rings });
+    const polygons = extractPolygons(placemark);
+    if (polygons.length > 0) geometries.push({ linkZona, polygons });
   }
 
   return { geometries, unlabeledPlacemarks };

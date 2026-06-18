@@ -14,7 +14,7 @@ describe('parsing KML OMI (§7)', () => {
     const ids = geometries.map((g) => g.linkZona).sort();
     expect(ids).toEqual(['F205_1', 'SARD_AF']);
     const mi1 = geometries.find((g) => g.linkZona === 'F205_1')!;
-    expect(mi1.rings[0]).toHaveLength(5);
+    expect(mi1.polygons[0]![0]).toHaveLength(5);
   });
 
   it('fallback su <name> quando manca SimpleData LinkZona', () => {
