@@ -48,6 +48,7 @@ export function parseValori(valoriCsv: string, semestre: string): ParseValoriRes
 
     quotations.push({
       linkZona,
+      zona: r['Zona'] ?? '',
       comuneCode: r['Comune_amm'] ?? '',
       comuneAmm: r['Comune_descrizione'] || null,
       fascia: parseFascia(r['Fascia']) ?? 'R',
@@ -78,8 +79,16 @@ export function parseZone(zoneCsv: string): { zones: ParsedZone[]; malformedLine
 export interface IngestInput {
   valoriCsv: string;
   zoneCsv: string;
-  kml: string;
+  /** Contenuto KML singolo (build interna del map). Alternativo a geometryMap. */
+  kml?: string;
+  /** Map LinkZona-geometrico → MultiPolygon già costruito (es. directory di KML). */
+  geometryMap?: Map<string, GeoJsonMultiPolygon>;
   semestre: string;
+}
+
+/** Chiave di join geometrico VALORI ↔ KML: `${Comune_amm}_${Zona}` normalizzata. */
+export function geomKey(comuneCode: string, zona: string): string {
+  return `${comuneCode}_${zona}`.trim().toUpperCase();
 }
 
 /** Costruisce la mappa LinkZona → MultiPolygon sanificato dal KML. */
@@ -107,7 +116,9 @@ export function ingestOmi(input: IngestInput): IngestionResult {
 
   const valori = parseValori(input.valoriCsv, input.semestre);
   const zone = parseZone(input.zoneCsv);
-  const geometry = buildGeometryMap(input.kml);
+  const geometry = input.geometryMap != null
+    ? { map: input.geometryMap, flags: [] as IngestionFlag[] }
+    : buildGeometryMap(input.kml ?? '');
 
   const flags: IngestionFlag[] = [...valori.flags, ...geometry.flags];
   for (const ln of valori.malformedLineNumbers) {
@@ -123,13 +134,14 @@ export function ingestOmi(input: IngestInput): IngestionResult {
   let rowsWithoutGeometry = 0;
 
   for (const q of valori.quotations) {
-    const geom = geometry.map.get(q.linkZona) ?? null;
+    const key = geomKey(q.comuneCode, q.zona);
+    const geom = geometry.map.get(key) ?? null;
     if (geom == null) {
       rowsWithoutGeometry++;
-      if (!missingGeomReported.has(q.linkZona)) {
-        missingGeomReported.add(q.linkZona);
+      if (!missingGeomReported.has(key)) {
+        missingGeomReported.add(key);
         // Gap perimetri (es. provincia di Forlì-Cesena assente nei poligoni).
-        flags.push({ kind: 'missing_geometry', linkZona: q.linkZona, detail: 'nessun perimetro KML per la zona' });
+        flags.push({ kind: 'missing_geometry', linkZona: q.linkZona, detail: `nessun perimetro KML per zona ${key}` });
       }
     } else {
       rowsWithGeometry++;

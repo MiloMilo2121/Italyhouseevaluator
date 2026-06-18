@@ -9,9 +9,10 @@
  *   npm run ingest:omi -- --semestre 2024-2 \
  *     --valori data/omi/valori.csv --zone data/omi/zone.csv --kml data/omi/zone.kml
  */
-import { readFileSync } from 'node:fs';
-import { ingestOmi } from '@/lib/omi/ingest';
-import type { IngestionReport, OmiUpsertRow } from '@/lib/omi/types';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { buildGeometryMap, ingestOmi } from '@/lib/omi/ingest';
+import type { GeoJsonMultiPolygon, IngestionReport, OmiUpsertRow } from '@/lib/omi/types';
 import type { SupabaseRpcClient } from '@/lib/omi/query-supabase';
 import { createServiceClient } from '@/lib/db/client';
 
@@ -20,6 +21,7 @@ interface Args {
   valori: string;
   zone: string;
   kml: string;
+  kmlDir: string;
   dryRun: boolean;
   help: boolean;
 }
@@ -34,9 +36,29 @@ function parseArgs(argv: string[]): Args {
     valori: get('--valori', 'data/omi/valori.csv'),
     zone: get('--zone', 'data/omi/zone.csv'),
     kml: get('--kml', 'data/omi/zone.kml'),
+    kmlDir: get('--kml-dir', ''),
     dryRun: argv.includes('--dry-run'),
     help: argv.includes('--help') || argv.includes('-h'),
   };
+}
+
+/**
+ * Costruisce il map geometrico da una directory di KML (formato reale: un file
+ * per comune, es. A001.kml). Itera file per file fondendo i map, così da NON
+ * concatenare centinaia di MB in un'unica stringa (il regex backtrackerebbe).
+ */
+function buildGeometryMapFromDir(dir: string): Map<string, GeoJsonMultiPolygon> {
+  const files = readdirSync(dir).filter((f) => f.toLowerCase().endsWith('.kml'));
+  const map = new Map<string, GeoJsonMultiPolygon>();
+  let done = 0;
+  for (const file of files) {
+    const kml = readFileSync(join(dir, file), 'utf-8');
+    const { map: fileMap } = buildGeometryMap(kml);
+    for (const [k, v] of fileMap) map.set(k, v);
+    if (++done % 500 === 0) console.log(`  KML ${done}/${files.length} (${map.size} zone)`);
+  }
+  console.log(`  KML ${files.length}/${files.length} → ${map.size} zone con geometria valida`);
+  return map;
 }
 
 const HELP = `Ingestion OMI → Supabase/PostGIS
@@ -48,7 +70,9 @@ Opzioni:
   --semestre <YYYY-S>  Semestre dei dati (obbligatorio), es. 2024-2
   --valori <path>      File VALORI csv      (default data/omi/valori.csv)
   --zone <path>        File ZONE csv        (default data/omi/zone.csv)
-  --kml <path>         Perimetri KML        (default data/omi/zone.kml)
+  --kml <path>         Perimetri KML singolo (default data/omi/zone.kml)
+  --kml-dir <path>     Directory di KML (un file per comune, es. A001.kml).
+                       Se presente, ha precedenza su --kml.
   --dry-run            Esegue la pipeline e stampa il report, senza scrivere su DB
   --help, -h           Mostra questo aiuto
 `;
@@ -95,12 +119,16 @@ async function main(): Promise<void> {
     return;
   }
 
-  console.log(`Lettura file OMI (UTF-8): ${args.valori}, ${args.zone}, ${args.kml}`);
+  const kmlSource = args.kmlDir ? `dir:${args.kmlDir}` : args.kml;
+  console.log(`Lettura file OMI (UTF-8): ${args.valori}, ${args.zone}, ${kmlSource}`);
   const valoriCsv = readFileSync(args.valori, 'utf-8');
   const zoneCsv = readFileSync(args.zone, 'utf-8');
-  const kml = readFileSync(args.kml, 'utf-8');
 
-  const { rows, report } = ingestOmi({ valoriCsv, zoneCsv, kml, semestre: args.semestre });
+  const ingestInput = args.kmlDir
+    ? { valoriCsv, zoneCsv, geometryMap: buildGeometryMapFromDir(args.kmlDir), semestre: args.semestre }
+    : { valoriCsv, zoneCsv, kml: readFileSync(args.kml, 'utf-8'), semestre: args.semestre };
+
+  const { rows, report } = ingestOmi(ingestInput);
   printReport(report);
 
   if (args.dryRun) {

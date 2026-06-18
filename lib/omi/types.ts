@@ -7,7 +7,8 @@ import type { FallbackLevel, OmiStato } from '@/lib/valuation/types';
 
 /** Una quotazione parsata dal file VALORI (una riga = zona × tipologia × stato). */
 export interface ParsedQuotation {
-  linkZona: string;
+  linkZona: string; // identificativo reale OMI (campo LinkZona, es. PD00000035)
+  zona: string; // codice zona OMI (campo Zona, es. B1) — usato per la chiave geometrica
   comuneCode: string; // Belfiore (campo OMI Comune_amm)
   comuneAmm: string | null; // denominazione (campo OMI Comune_descrizione)
   fascia: string;

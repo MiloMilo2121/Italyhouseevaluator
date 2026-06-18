@@ -35,7 +35,11 @@ export const EXPECTED_VALORI_HEADERS = [
   'Sup_NL_loc',
 ] as const;
 
-/** Tracciato atteso del file ZONE. */
+/**
+ * Tracciato atteso del file ZONE (formato reale Agenzia Entrate, 16 colonne:
+ * QI_*_ZONE.csv dei perimetri OMI). Il file ZONE alimenta solo report/conteggi;
+ * il join geometrico passa per VALORI ↔ KML (Comune_amm + Zona).
+ */
 export const EXPECTED_ZONE_HEADERS = [
   'Area_territoriale',
   'Regione',
@@ -45,10 +49,13 @@ export const EXPECTED_ZONE_HEADERS = [
   'Sez',
   'Comune_amm',
   'Comune_descrizione',
+  'Fascia',
   'Zona_Descr',
+  'Zona',
   'LinkZona',
-  'Cod_tip_prevalente',
-  'Descr_tip_prevalente',
+  'Cod_tip_prev',
+  'Descr_tip_prev',
+  'Stato_prev',
   'Microzona',
 ] as const;
 

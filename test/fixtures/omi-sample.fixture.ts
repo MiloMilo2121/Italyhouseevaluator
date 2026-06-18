@@ -19,20 +19,35 @@ export const SAMPLE_VALORI = [
 export const SAMPLE_ZONE = [
   'Zone OMI - 2024 Semestre 2;',
   EXPECTED_ZONE_HEADERS.join(';') + ';',
-  row(['NORD OVEST', 'LOMBARDIA', 'MI', '015146', 'F205', '', 'F205', 'MILANO', 'Centro storico', 'MI_1', '20', 'Abitazioni civili', '1']),
-  row(['NORD OVEST', 'LOMBARDIA', 'MI', '015146', 'F205', '', 'F205', 'MILANO', 'Semicentro', 'MI_2', '20', 'Abitazioni civili', '2']),
+  row(['NORD OVEST', 'LOMBARDIA', 'MI', '015146', 'F205', '', 'F205', 'MILANO', 'B', 'Centro storico', '1', 'MI_1', '20', 'Abitazioni civili', 'NORMALE', '1']),
+  row(['NORD OVEST', 'LOMBARDIA', 'MI', '015146', 'F205', '', 'F205', 'MILANO', 'C', 'Semicentro', '2', 'MI_2', '20', 'Abitazioni civili', 'NORMALE', '2']),
 ].join('\n');
 
+/**
+ * KML nel formato reale "perimetri OMI": ExtendedData con <Data name="CODCOM">
+ * + <Data name="CODZONA"> (il campo LINKZONA è vuoto). La chiave geometrica è
+ * `${CODCOM}_${CODZONA}` (uppercase) e combacia con `${Comune_amm}_${Zona}` del
+ * VALORI: F205_1 (Milano zona 1, geometria valida) e SARD_AF (fuori Italia).
+ */
 export const SAMPLE_KML = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2"><Document>
   <Placemark>
-    <ExtendedData><SchemaData><SimpleData name="LinkZona">MI_1</SimpleData></SchemaData></ExtendedData>
+    <name>MILANO - Zona OMI 1</name>
+    <ExtendedData>
+      <Data name="LINKZONA"><value></value></Data>
+      <Data name="CODCOM"><value>F205</value></Data>
+      <Data name="CODZONA"><value>1</value></Data>
+    </ExtendedData>
     <Polygon><outerBoundaryIs><LinearRing><coordinates>
       9.18,45.46,0 9.20,45.46,0 9.20,45.475,0 9.18,45.475,0 9.18,45.46,0
     </coordinates></LinearRing></outerBoundaryIs></Polygon>
   </Placemark>
   <Placemark>
-    <ExtendedData><SchemaData><SimpleData name="LinkZona">SARD_AFRICA</SimpleData></SchemaData></ExtendedData>
+    <name>SARD - Zona OMI AF</name>
+    <ExtendedData>
+      <Data name="CODCOM"><value>SARD</value></Data>
+      <Data name="CODZONA"><value>AF</value></Data>
+    </ExtendedData>
     <Polygon><outerBoundaryIs><LinearRing><coordinates>
       8.0,0.0,0 8.1,0.0,0 8.1,0.1,0 8.0,0.1,0 8.0,0.0,0
     </coordinates></LinearRing></outerBoundaryIs></Polygon>

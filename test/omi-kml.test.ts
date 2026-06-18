@@ -9,11 +9,11 @@ describe('parsing KML OMI (§7)', () => {
     expect(ring[0]).toEqual([9.18, 45.46]);
   });
 
-  it('estrae le geometrie associate al LinkZona dall’ExtendedData', () => {
+  it('estrae le geometrie con chiave composita CODCOM_CODZONA dall’ExtendedData', () => {
     const { geometries } = parseKmlGeometries(SAMPLE_KML);
     const ids = geometries.map((g) => g.linkZona).sort();
-    expect(ids).toEqual(['MI_1', 'SARD_AFRICA']);
-    const mi1 = geometries.find((g) => g.linkZona === 'MI_1')!;
+    expect(ids).toEqual(['F205_1', 'SARD_AF']);
+    const mi1 = geometries.find((g) => g.linkZona === 'F205_1')!;
     expect(mi1.rings[0]).toHaveLength(5);
   });
 
