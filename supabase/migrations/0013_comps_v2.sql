@@ -68,7 +68,7 @@ begin
     values (
       r->>'listing_id', coalesce(r->>'source', 'annuncio'),
       ST_SetSRID(ST_MakePoint((r->>'lng')::double precision, (r->>'lat')::double precision), 4326),
-      nullif(r->>'comune_code', ''), nullif(r->>'property_type', ''),
+      nullif(r->>'comune_code', ''), nullif(r->>'property_type', '')::property_type_enum,
       (r->>'superficie_mq')::numeric, (r->>'superficie_commerciale_mq')::numeric,
       nullif(r->>'stato', '')::omi_stato_enum, (r->>'price')::numeric, (r->>'eur_mq')::numeric,
       (r->>'sale_date')::date,
