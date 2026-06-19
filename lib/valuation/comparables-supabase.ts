@@ -1,12 +1,14 @@
 import type { SupabaseRpcClient } from '@/lib/omi/query-supabase';
+import { marketGroupFor } from '@/lib/comps/property-groups';
 import type { ComparablesProvider, ComparablesQueryOpts } from './ports';
 import type { Comparable, CompSource, OmiStato, SubjectProperty } from './types';
 
 /**
  * Provider comparabili backed da Supabase/PostGIS (V2). Chiama la funzione KNN
- * `comps_near` (migrazione 0013) — solo recupero candidati; il MCA e ogni
- * decisione restano in TS. È l'unico punto che tocca il DB per i comps;
- * integration-tested su ambiente reale, qui build-verified.
+ * `comps_near` (migrazioni 0013 + 0023) — solo recupero candidati; il MCA e ogni
+ * decisione restano in TS. Filtra per GRUPPO DI MERCATO della tipologia subject
+ * (i €/mq non sono confrontabili tra appartamenti/ville/rustici). È l'unico punto
+ * che tocca il DB per i comps; integration-tested su reale, qui build-verified.
  */
 
 interface CompNearRow {
@@ -33,6 +35,9 @@ export class SupabaseComparablesProvider implements ComparablesProvider {
       p_radius_m: opts?.radiusMeters ?? 1500,
       p_max: opts?.limit ?? 12,
       p_months: opts?.months ?? 18,
+      // Solo comparabili dello stesso gruppo di mercato (residenziale verticale /
+      // orizzontale / rustico): i €/mq non sono confrontabili tra gruppi diversi.
+      p_property_types: marketGroupFor(subject.propertyType),
     });
     if (error) throw new Error(`comps_near fallita: ${error.message}`);
     const rows = (data as CompNearRow[] | null) ?? [];
