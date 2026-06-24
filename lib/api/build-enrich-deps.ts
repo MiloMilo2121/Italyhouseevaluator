@@ -4,6 +4,8 @@ import { SupabaseOmiQueryClient, type SupabaseRpcClient } from '@/lib/omi/query-
 import { OmiResolverImpl } from '@/lib/omi/resolver';
 import { emptyComparablesProvider } from '@/lib/valuation/comparables-empty';
 import { SupabaseComparablesProvider } from '@/lib/valuation/comparables-supabase';
+import { createZoneIntelligenceProvider } from '@/lib/perplexity/factory';
+import { createBoundedCorrector, correctionParamsFromEnv } from '@/lib/valuation/correction/factory';
 import type { EnrichDeps } from '@/lib/valuation/enrich';
 
 /**
@@ -18,9 +20,15 @@ export async function buildEnrichDeps(client: SupabaseClient): Promise<EnrichDep
     process.env['COMPS_ENABLED'] === 'true'
       ? new SupabaseComparablesProvider(rpcClient)
       : emptyComparablesProvider;
+  // Fase 3/4: gated. Assenti ⇒ enrich resta OMI+comps (degrado pulito).
+  const zoneIntelligenceProvider = createZoneIntelligenceProvider();
+  const boundedCorrector = createBoundedCorrector();
   return {
     coefficientSet: await loadActiveCoefficientSet(client),
     omiResolver: new OmiResolverImpl(new SupabaseOmiQueryClient(rpcClient)),
     comparablesProvider,
+    correctionParams: correctionParamsFromEnv(),
+    ...(zoneIntelligenceProvider ? { zoneIntelligenceProvider } : {}),
+    ...(boundedCorrector ? { boundedCorrector } : {}),
   };
 }

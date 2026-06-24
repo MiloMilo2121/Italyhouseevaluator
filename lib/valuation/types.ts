@@ -187,6 +187,46 @@ export interface ComparableContribution {
   weight: number;
 }
 
+// ---- Zone intelligence (Fase 3: ricerca web Perplexity, contesto/controllo) ----
+export interface ZoneIntelligenceSource {
+  title: string;
+  url: string;
+}
+
+/** Contesto qualitativo + controllo prezzi dalla ricerca web. NON numeri di valore. */
+export interface ZoneIntelligence {
+  desirability_score: number; // 0..100
+  desirability_label: 'alta' | 'media' | 'bassa';
+  note_qualitative: string;
+  web_eur_mq_min: number | null; // prezzi medi osservati sul web (per cross-check)
+  web_eur_mq_max: number | null;
+  omi_deviation_pct: number | null; // (web_mid − omi_mid)/omi_mid, calcolato da NOI
+  omi_deviation_flag: 'aligned' | 'web_higher' | 'web_lower' | 'unknown';
+  venduto_recente: string | null; // sintesi qualitativa
+  vendibile_recente: string | null;
+  sources: ZoneIntelligenceSource[];
+  model: string;
+  retrieved_at: string; // ISO
+}
+
+// ---- Correzione LLM vincolata (Fase 4) ----
+export interface CorrectionParams {
+  enabled: boolean;
+  clampMaxPct: number; // clamp simmetrico (es. 0.06 = ±6%)
+  requireZoneIntel: boolean; // senza zone intelligence ⇒ fattore 1
+}
+
+/** Correzione applicata al valore deterministico: fattore CLAMPATO + tracciato. */
+export interface AppliedCorrection {
+  factor_raw: number; // proposto dal modello
+  factor_applied: number; // dopo clamp — è ciò che moltiplica
+  clamped: boolean;
+  motivazione: string;
+  basis: 'zone_intelligence' | 'none';
+  model: string;
+  applied_at: string;
+}
+
 // ---- Superficie ----
 export interface SurfaceComponent {
   label: string;
@@ -245,4 +285,11 @@ export interface EnrichResult {
   comparables: ComparableContribution[];
   /** Diagnostica della calibrazione edonica (assente ⇒ usati i coefficienti fissi). */
   hedonic?: HedonicFit | null;
+  /** Contesto/controllo zona dalla ricerca web (Fase 3). */
+  zone_intelligence?: ZoneIntelligence | null;
+  /** Correzione LLM applicata al valore (Fase 4), tracciata. */
+  correction?: AppliedCorrection | null;
+  /** Valore deterministico PRE-correzione (audit/riproducibilità). */
+  estimate_deterministic_min?: number | null;
+  estimate_deterministic_max?: number | null;
 }

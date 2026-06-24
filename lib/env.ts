@@ -42,6 +42,19 @@ const serverSchema = z.object({
   CATASTO_API_KEY: z.string().min(1).optional(),
   // V2 Step 4: perizia long-context (riusa ANTHROPIC_API_KEY). Default opus.
   PERIZIA_MODEL: z.string().min(1).optional(),
+  // Fase 3: zone intelligence (Perplexity). Senza key il layer è no-op.
+  PERPLEXITY_API_KEY: z.string().min(1).optional(),
+  PERPLEXITY_MODEL: z.string().min(1).optional(),
+  PERPLEXITY_BASE_URL: z.string().url().optional(),
+  ZONE_OMI_DEVIATION_THRESHOLD: z.coerce.number().positive().optional(),
+  // Fase 4: correzione LLM vincolata. Doppio gate: ANTHROPIC_API_KEY + CORRECTION_ENABLED.
+  CORRECTION_ENABLED: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  CORRECTION_MODEL: z.string().min(1).optional(),
+  CORRECTION_CLAMP_MAX_PCT: z.coerce.number().min(0).max(0.2).optional(),
+  CORRECTION_REQUIRE_ZONE_INTEL: z.enum(['true', 'false']).optional(),
   // V2 Step 5: fonti ufficiali comparabili (seam estensibile via COMPS_SOURCE).
   // Le API reali sono validate in deploy (come Apify/Catasto).
   COMPS_SOURCE: z.string().min(1).default('apify'),

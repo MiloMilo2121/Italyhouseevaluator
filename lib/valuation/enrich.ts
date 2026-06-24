@@ -8,13 +8,24 @@ import {
 } from './comparables';
 import { DEFAULT_MACRO_AREA, type MacroArea } from '@/lib/comps/discount';
 import { fitHedonic } from './hedonic';
+import { applyBoundedCorrection } from './correction/clamp';
+import { DEFAULT_CORRECTION_PARAMS } from './correction/factory';
 import { computeConfidence } from './confidence';
 import { computeBaseEstimate, condizioniToStato, selectOmiRow } from './omi';
 import { computeRange } from './range';
 import { boxAutoValue, computeSurface } from './surface';
 import { round2 } from './util';
-import type { OmiResolver, ComparablesProvider } from './ports';
-import type { BreakdownLine, CoefficientSet, EnrichResult, SubjectProperty } from './types';
+import type { OmiResolver, ComparablesProvider, ZoneIntelligenceProvider, BoundedCorrector } from './ports';
+import type {
+  AppliedCorrection,
+  BreakdownLine,
+  CoefficientSet,
+  CorrectionParams,
+  EnrichResult,
+  Estimate,
+  SubjectProperty,
+  ZoneIntelligence,
+} from './types';
 
 /** Sotto questa numerosità di comparabili la stima edonica non si attiva (resta ai fissi). */
 const MIN_COMP_FOR_HEDONIC = 4;
@@ -33,6 +44,11 @@ export interface EnrichDeps {
   shrinkageK?: number;
   /** Macro-area per lo sconto offerta→rogito dei comparabili (default Nord-Est). */
   marketArea?: MacroArea;
+  /** Fase 3: ricerca web zona (Perplexity). Assente ⇒ stadio saltato. */
+  zoneIntelligenceProvider?: ZoneIntelligenceProvider;
+  /** Fase 4: correzione LLM vincolata. Assente/disabilitata ⇒ valore deterministico. */
+  boundedCorrector?: BoundedCorrector;
+  correctionParams?: CorrectionParams;
 }
 
 export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promise<EnrichResult> {
@@ -93,7 +109,59 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
       })
     : null;
 
-  // 9. Breakdown voce-per-voce (contributi in € che sommano al point estimate).
+  // 9. Zone intelligence (Fase 3, best-effort: un fallimento non rompe enrich).
+  let zoneIntel: ZoneIntelligence | null = null;
+  if (deps.zoneIntelligenceProvider && finalEstimate) {
+    try {
+      zoneIntel = await deps.zoneIntelligenceProvider.research({
+        comune: subject.comuneCode ?? null,
+        zonaOmiId: resolution.zonaOmiId,
+        indirizzo: null,
+        location: subject.location,
+        omiEurMqMin: rowSel.row?.comprMin ?? null,
+        omiEurMqMax: rowSel.row?.comprMax ?? null,
+        propertyType: subject.propertyType,
+      });
+    } catch (err) {
+      console.error('[enrich] zone intelligence fallita:', err);
+    }
+  }
+
+  // 10. Correzione LLM VINCOLATA (Fase 4): il fattore è clampato/applicato da noi.
+  const correctionParams = deps.correctionParams ?? DEFAULT_CORRECTION_PARAMS;
+  let correctedEstimate: Estimate | null = finalEstimate;
+  let appliedCorrection: AppliedCorrection | null = null;
+  if (deps.boundedCorrector && finalEstimate && correctionParams.enabled) {
+    try {
+      const raw = await deps.boundedCorrector.correct({
+        estimateDeterministic: finalEstimate,
+        zoneIntel,
+        dossier: {
+          zonaOmiId: resolution.zonaOmiId,
+          fallbackLevel: resolution.fallbackLevel,
+          confidenceLabel: confidence.label,
+          compsCount: summary.n,
+        },
+        clampMaxPct: correctionParams.clampMaxPct,
+      });
+      if (raw) {
+        const out = applyBoundedCorrection(
+          finalEstimate,
+          raw,
+          correctionParams,
+          zoneIntel,
+          deps.boundedCorrector.model,
+          new Date().toISOString(),
+        );
+        correctedEstimate = out.estimate;
+        appliedCorrection = out.applied;
+      }
+    } catch (err) {
+      console.error('[enrich] correzione LLM fallita:', err);
+    }
+  }
+
+  // 11. Breakdown voce-per-voce (contributi in € che sommano al point estimate).
   const breakdown = buildBreakdown({
     surface: surface.superficieCommercialeMq,
     omiMid,
@@ -103,6 +171,12 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
     classe: subject.classeEnergetica,
     semestre: resolution.semestre,
   });
+  if (appliedCorrection && finalEstimate && appliedCorrection.factor_applied !== 1) {
+    breakdown.push({
+      label: `Correzione contesto zona (fattore ${appliedCorrection.factor_applied}${appliedCorrection.clamped ? ', clampato' : ''}) — ${appliedCorrection.motivazione}`,
+      contributo: round2((correctedEstimate?.pointEstimate ?? 0) - finalEstimate.pointEstimate),
+    });
+  }
 
   return {
     superficie_commerciale_mq: surface.superficieCommercialeMq,
@@ -111,12 +185,16 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
     omi_eur_mq_min: rowSel.row?.comprMin ?? null,
     omi_eur_mq_max: rowSel.row?.comprMax ?? null,
     coefficients_applied: { ...merit.factors, merito_totale: merit.coefficient },
-    estimate_min: finalEstimate?.min ?? null,
-    estimate_max: finalEstimate?.max ?? null,
+    estimate_min: correctedEstimate?.min ?? null,
+    estimate_max: correctedEstimate?.max ?? null,
     confidence,
     breakdown,
     comparables: buildAdjustmentGrid(weighted, { subject, merit: m, macroArea, ...(hedonicModel ? { hedonicModel } : {}) }),
     hedonic: hedonicModel?.summary ?? null,
+    zone_intelligence: zoneIntel,
+    correction: appliedCorrection,
+    estimate_deterministic_min: finalEstimate?.min ?? null,
+    estimate_deterministic_max: finalEstimate?.max ?? null,
   };
 }
 
