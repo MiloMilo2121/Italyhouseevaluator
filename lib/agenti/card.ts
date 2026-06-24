@@ -4,11 +4,13 @@ import type { ValuationNarrative } from '@/lib/narration/types';
 import type { CatastoData, DocumentFacts } from '@/lib/documents/types';
 import type { Perizia } from '@/lib/perizia/types';
 import type {
+  AppliedCorrection,
   ComparableContribution,
   ConfidenceLabel,
   EnrichResult,
   FallbackLevel,
   Intent,
+  ZoneIntelligence,
 } from '@/lib/valuation/types';
 
 /**
@@ -58,6 +60,10 @@ export interface DetailRow {
   confidence_fsd: number | string | null;
   breakdown: { label: string; contributo: number }[] | null;
   comparables: ComparableContribution[] | null;
+  zone_intelligence: ZoneIntelligence | null;
+  correction: AppliedCorrection | null;
+  estimate_deterministic_min: number | string | null;
+  estimate_deterministic_max: number | string | null;
   narrative: ValuationNarrative | null;
   catasto: CatastoData | null;
   document_facts: DocumentFacts | null;
@@ -112,6 +118,10 @@ export function rowToEnrichResult(row: DetailRow): EnrichResult | null {
     },
     breakdown: row.breakdown ?? [],
     comparables: row.comparables ?? [],
+    zone_intelligence: row.zone_intelligence,
+    correction: row.correction,
+    estimate_deterministic_min: num(row.estimate_deterministic_min),
+    estimate_deterministic_max: num(row.estimate_deterministic_max),
   };
 }
 
@@ -144,6 +154,9 @@ export function rowToReportData(row: DetailRow): ValuationReportData {
     narrative: row.narrative,
     catasto: row.catasto,
     documentFacts: row.document_facts,
+    perizia: row.perizia,
+    zoneIntelligence: row.zone_intelligence,
+    correction: row.correction,
   };
 }
 

@@ -1,6 +1,6 @@
 import { renderValuationReport, type ValuationReportData } from '@/lib/report/valuation-report';
 import { renderPerizia, type PeriziaReportData } from '@/lib/perizia/render';
-import type { EnrichResult } from '@/lib/valuation/types';
+import type { AppliedCorrection, EnrichResult, ZoneIntelligence } from '@/lib/valuation/types';
 import type { ValuationNarrative } from '@/lib/narration/types';
 import type { CatastoData, DocumentFacts } from '@/lib/documents/types';
 import type { Perizia } from '@/lib/perizia/types';
@@ -28,6 +28,8 @@ const enrich: EnrichResult = {
   coefficients_applied: { piano: 1.0, classe_energetica: 1.015, luminosita_esposizione: 1.0, merito_totale: 1.015 },
   estimate_min: 330000,
   estimate_max: 372000,
+  estimate_deterministic_min: 320388,
+  estimate_deterministic_max: 361165,
   confidence: { score: 78, label: 'Alta', fsd: 0.06 },
   breakdown: [
     { label: 'Prezzo base zona (OMI Ottimo, 2024-2) × 92 m²', contributo: 354200 },
@@ -116,6 +118,36 @@ const perizia: Perizia = {
   },
 };
 
+const zoneIntelligence: ZoneIntelligence = {
+  desirability_score: 84,
+  desirability_label: 'alta',
+  note_qualitative:
+    'Zona semicentrale ben servita (metro a 300 m, Stazione Centrale a 600 m), forte domanda residenziale e terziaria; riqualificazioni recenti hanno sostenuto i valori.',
+  web_eur_mq_min: 3700,
+  web_eur_mq_max: 4400,
+  omi_deviation_pct: 0.05,
+  omi_deviation_flag: 'web_higher',
+  venduto_recente: 'Trilocali simili venduti in 45–70 giorni nell’ultimo semestre.',
+  vendibile_recente: 'Offerta scarsa nel taglio 85–100 m²: la domanda supera lo stock disponibile.',
+  sources: [
+    { title: 'Immobiliare.it — zona Centrale', url: 'https://www.immobiliare.it/mercato-immobiliare/lombardia/milano/' },
+    { title: 'Idealista — report prezzi Milano', url: 'https://www.idealista.it/news/immobiliare/prezzi/' },
+  ],
+  model: 'sonar-pro',
+  retrieved_at: '2026-06-17T09:20:00.000Z',
+};
+
+const correction: AppliedCorrection = {
+  factor_raw: 1.03,
+  factor_applied: 1.03,
+  clamped: false,
+  motivazione:
+    'Appetibilità alta e prezzi web leggermente sopra l’OMI con offerta scarsa nel taglio: lieve premio di contesto.',
+  basis: 'zone_intelligence',
+  model: 'claude-sonnet-4-6',
+  applied_at: '2026-06-17T09:22:00.000Z',
+};
+
 export const mockReportData: ValuationReportData = {
   referenceId: 'VAL-7F3A2B9C',
   address,
@@ -123,6 +155,9 @@ export const mockReportData: ValuationReportData = {
   narrative,
   catasto,
   documentFacts,
+  perizia,
+  zoneIntelligence,
+  correction,
 };
 
 export const mockPeriziaData: PeriziaReportData = {
