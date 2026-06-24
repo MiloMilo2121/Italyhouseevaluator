@@ -19,6 +19,10 @@ export interface OmiResolver {
 
 export interface ComparablesQueryOpts {
   radiusMeters?: number;
+  /** Raggio largo per il campione edonico (default ~3 km). */
+  wideRadiusMeters?: number;
+  /** Numero di comparabili più vicini per l'MCA (split a valle). */
+  nearestN?: number;
   limit?: number;
   months?: number;
   omiZone?: string | null;

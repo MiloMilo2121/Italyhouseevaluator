@@ -23,6 +23,10 @@ export interface RawListing {
   piano?: number | null;
   ascensore?: boolean | null;
   classeEnergetica?: string | null;
+  // Attributi per la stima edonica / similarità (Fase 2).
+  locali?: number | null;
+  hasTerrazzo?: boolean | null;
+  hasBalcone?: boolean | null;
   listingDate?: string | null; // ISO
   /** Origine prezzo: omesso ⇒ 'annuncio' (offerta, scontata). I dati transazionali
    *  ufficiali (rogiti/agency) la impostano a 'agency'/'rogito' ⇒ niente sconto. */
@@ -45,6 +49,7 @@ export interface NormalizedComp {
   piano: number | null;
   ascensore: boolean | null;
   classe_energetica: string | null;
+  locali: number | null;
   attributes: Record<string, unknown>;
 }
 
@@ -84,7 +89,13 @@ export function normalizeListing(raw: RawListing): NormalizedComp | null {
     piano: raw.piano ?? null,
     ascensore: raw.ascensore ?? null,
     classe_energetica: raw.classeEnergetica ?? null,
-    attributes: { portal: raw.portal },
+    locali: raw.locali ?? null,
+    attributes: {
+      portal: raw.portal,
+      ...(raw.locali != null ? { locali: raw.locali } : {}),
+      ...(raw.hasTerrazzo != null ? { terrazzo: raw.hasTerrazzo } : {}),
+      ...(raw.hasBalcone != null ? { balcone: raw.hasBalcone } : {}),
+    },
   };
 }
 

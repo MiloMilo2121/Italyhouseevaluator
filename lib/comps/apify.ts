@@ -18,6 +18,15 @@ function num(v: unknown): number | null {
 function str(v: unknown): string | null {
   return typeof v === 'string' && v.trim() !== '' ? v : null;
 }
+function bool(v: unknown): boolean | null {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (['true', 'si', 'sì', 'yes', '1'].includes(s)) return true;
+    if (['false', 'no', '0'].includes(s)) return false;
+  }
+  return null;
+}
 function path(obj: Item, ...keys: string[]): unknown {
   let cur: unknown = obj;
   for (const k of keys) {
@@ -44,6 +53,9 @@ export function extractImmobiliare(item: Item): RawListing | null {
     piano: num(path(item, 'topology', 'floor')),
     ascensore: typeof path(item, 'topology', 'elevator') === 'boolean' ? (path(item, 'topology', 'elevator') as boolean) : null,
     classeEnergetica: str(path(item, 'topology', 'energyClass')),
+    locali: num(path(item, 'topology', 'rooms')) ?? num(item['locali']),
+    hasTerrazzo: bool(path(item, 'topology', 'terrace')) ?? bool(item['terrazzo']),
+    hasBalcone: bool(path(item, 'topology', 'balcony')) ?? bool(item['balcone']),
     listingDate: str(item['date']),
   };
 }
@@ -68,6 +80,9 @@ export function extractIdealista(item: Item): RawListing | null {
         ? (path(item, 'moreCharacteristics', 'lift') as boolean)
         : null,
     classeEnergetica: str(path(item, 'moreCharacteristics', 'energyCertification', 'type')),
+    locali: num(path(item, 'moreCharacteristics', 'roomNumber')),
+    hasTerrazzo: bool(path(item, 'moreCharacteristics', 'terrace')),
+    hasBalcone: bool(path(item, 'moreCharacteristics', 'balcony')),
     listingDate: null,
   };
 }
