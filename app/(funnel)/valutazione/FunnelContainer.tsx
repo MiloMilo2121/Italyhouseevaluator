@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import {
   firstStep,
@@ -81,18 +82,7 @@ function Choice<T extends string>({
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
       {options.map((o) => (
-        <button
-          key={o.value}
-          type="button"
-          onClick={() => onSelect(o.value)}
-          style={{
-            padding: '10px 14px',
-            borderRadius: 8,
-            border: value === o.value ? '2px solid #1c7ed6' : '1px solid #ccc',
-            background: value === o.value ? '#e7f1fc' : '#fff',
-            cursor: 'pointer',
-          }}
-        >
+        <button key={o.value} type="button" onClick={() => onSelect(o.value)} className="chip" aria-pressed={value === o.value}>
           {o.label}
         </button>
       ))}
@@ -102,10 +92,12 @@ function Choice<T extends string>({
 
 const numberInput: React.CSSProperties = {
   width: '100%',
-  padding: 12,
+  padding: '12px 14px',
   fontSize: 16,
-  border: '1px solid #ccc',
-  borderRadius: 6,
+  border: '1px solid var(--line)',
+  borderRadius: 10,
+  background: 'var(--card)',
+  color: 'var(--ink)',
 };
 
 export default function FunnelContainer() {
@@ -176,49 +168,51 @@ export default function FunnelContainer() {
 
   if (referenceId) {
     return (
-      <main style={{ maxWidth: 640, margin: '4rem auto', padding: '0 1rem', textAlign: 'center' }}>
-        <h1>Richiesta ricevuta ✅</h1>
-        <p>
-          Grazie! Un nostro consulente Delfino ti ricontatta <strong>entro 24h</strong> con la
-          valutazione completa del tuo immobile.
-        </p>
-        <p style={{ color: '#888', fontSize: 14 }}>Riferimento: {referenceId}</p>
-        <DocumentUpload referenceId={referenceId} />
+      <main style={{ maxWidth: 560, margin: '64px auto', padding: '0 20px', textAlign: 'center' }}>
+        <div className="card" style={{ padding: '40px 32px' }}>
+          <div style={{ width: 52, height: 52, borderRadius: 999, background: 'var(--accent-soft)', color: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, marginBottom: 16 }}>
+            ✓
+          </div>
+          <h1 className="serif" style={{ fontSize: 30, margin: '0 0 12px' }}>Richiesta ricevuta</h1>
+          <p style={{ fontSize: 16.5, color: 'var(--muted)', margin: '0 auto 8px', maxWidth: 420 }}>
+            Grazie. Un nostro consulente ti ricontatta <strong style={{ color: 'var(--ink)' }}>entro 24 ore</strong> con
+            la valutazione completa del tuo immobile.
+          </p>
+          <p style={{ color: 'var(--faint)', fontSize: 13.5, margin: '0 0 8px' }}>Riferimento: {referenceId}</p>
+        </div>
+        <div style={{ marginTop: 20, textAlign: 'left' }}>
+          <DocumentUpload referenceId={referenceId} />
+        </div>
       </main>
     );
   }
 
   return (
-    <main style={{ maxWidth: 640, margin: '2rem auto', padding: '0 1rem' }}>
+    <main className="fnl" style={{ maxWidth: 600, margin: '40px auto 64px', padding: '0 20px' }}>
       <ExitIntentModal />
+      <Link href="/" style={{ display: 'inline-block', fontSize: 13, color: 'var(--muted)', textDecoration: 'none', marginBottom: 16 }}>
+        ← Valutazione immobiliare
+      </Link>
       <ProgressBar index={p.index} total={p.total} ratio={p.ratio} />
-      <div style={{ minHeight: 240 }}>{renderStep()}</div>
+      <div className="card" style={{ padding: '30px 28px', marginTop: 16 }}>
+        <div style={{ minHeight: 230 }}>{renderStep()}</div>
 
-      {submitError && <p style={{ color: '#c92a2a' }}>{submitError}</p>}
+        {submitError && <p style={{ color: '#c0392b', fontSize: 14 }}>{submitError}</p>}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 24 }}>
-        <button
-          type="button"
-          onClick={goBack}
-          disabled={prevStep(step, data) === null}
-          style={{ padding: '10px 16px', borderRadius: 6, border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}
-        >
-          Indietro
-        </button>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {def.optional && (
-            <button type="button" onClick={skip} style={{ padding: '10px 16px', borderRadius: 6, border: '1px solid #ccc', background: '#fff', cursor: 'pointer' }}>
-              SALTA
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={goNext}
-            disabled={submitting}
-            style={{ padding: '10px 20px', borderRadius: 6, border: 0, background: '#1c7ed6', color: '#fff', cursor: 'pointer' }}
-          >
-            {step === 'contatti' ? (submitting ? 'Invio…' : 'Invia richiesta') : 'Avanti'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 26, gap: 10 }}>
+          <button type="button" className="btn btn-ghost" onClick={goBack} disabled={prevStep(step, data) === null} style={{ opacity: prevStep(step, data) === null ? 0.4 : 1 }}>
+            Indietro
           </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {def.optional && (
+              <button type="button" className="btn btn-ghost" onClick={skip}>
+                Salta
+              </button>
+            )}
+            <button type="button" className="btn btn-primary" onClick={goNext} disabled={submitting}>
+              {step === 'contatti' ? (submitting ? 'Invio…' : 'Invia richiesta') : 'Avanti →'}
+            </button>
+          </div>
         </div>
       </div>
     </main>
@@ -332,8 +326,8 @@ export default function FunnelContainer() {
                     style={{
                       padding: '10px 14px',
                       borderRadius: 8,
-                      border: dot[k] ? '2px solid #1c7ed6' : '1px solid #ccc',
-                      background: dot[k] ? '#e7f1fc' : '#fff',
+                      border: dot[k] ? '2px solid var(--accent)' : '1px solid var(--line)',
+                      background: dot[k] ? 'var(--accent-soft)' : 'var(--card)',
                       cursor: 'pointer',
                     }}
                   >
@@ -412,8 +406,8 @@ export default function FunnelContainer() {
                   style={{
                     padding: '10px 14px',
                     borderRadius: 8,
-                    border: data.classe_energetica === c ? '2px solid #1c7ed6' : '1px solid #ccc',
-                    background: data.classe_energetica === c ? '#e7f1fc' : '#fff',
+                    border: data.classe_energetica === c ? '2px solid var(--accent)' : '1px solid var(--line)',
+                    background: data.classe_energetica === c ? 'var(--accent-soft)' : 'var(--card)',
                     cursor: 'pointer',
                   }}
                 >

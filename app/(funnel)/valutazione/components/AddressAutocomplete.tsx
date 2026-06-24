@@ -50,10 +50,10 @@ export default function AddressAutocomplete({
   return (
     <div style={{ position: 'relative' }}>
       <input
+        className="input"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Via, civico, città"
-        style={{ width: '100%', padding: '12px', fontSize: 16, border: '1px solid #ccc', borderRadius: 6 }}
       />
       {suggestions.length > 0 && (
         <ul

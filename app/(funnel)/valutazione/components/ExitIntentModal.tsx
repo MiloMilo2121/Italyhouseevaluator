@@ -29,15 +29,16 @@ export default function ExitIntentModal() {
         zIndex: 1000,
       }}
     >
-      <div style={{ background: '#fff', padding: 24, borderRadius: 8, maxWidth: 380, textAlign: 'center' }}>
-        <h3 style={{ marginTop: 0 }}>Aspetta!</h3>
-        <p>Mancano pochi passi per ricevere la valutazione gratuita del tuo immobile.</p>
+      <div className="card" style={{ padding: '28px 26px', maxWidth: 400, textAlign: 'center' }}>
+        <h3 className="serif" style={{ marginTop: 0, fontSize: 22 }}>Aspetta!</h3>
+        <p style={{ color: 'var(--muted)' }}>Mancano pochi passi per ricevere la valutazione gratuita del tuo immobile.</p>
         <button
+          type="button"
+          className="btn btn-primary"
           onClick={() => {
             setShown(false);
             setDismissed(true);
           }}
-          style={{ background: '#1c7ed6', color: '#fff', border: 0, padding: '10px 16px', borderRadius: 6, cursor: 'pointer' }}
         >
           Continua la valutazione
         </button>

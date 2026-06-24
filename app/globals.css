@@ -1,7 +1,25 @@
 @import 'tailwindcss';
 @import 'leaflet/dist/leaflet.css';
 
+/*
+ * Design system GENERICO (no brand): editoriale, carta avorio + inchiostro +
+ * accento verde-petrolio. Serif Fraunces (display), sans Geist (corpo) via
+ * next/font (--font-serif / --font-sans). Usato da landing e funnel.
+ */
 :root {
+  --ink: #1b1a17;
+  --paper: #faf8f2;
+  --paper-2: #f2efe6;
+  --card: #ffffff;
+  --muted: #6c6862;
+  --faint: #8c887f;
+  --line: #e7e2d6;
+  --line-2: #efebe1;
+  --accent: #1f5c52;
+  --accent-strong: #18463e;
+  --accent-soft: #e9f1ee;
+  --serif: var(--font-serif), Georgia, 'Times New Roman', serif;
+  --sans: var(--font-sans), system-ui, -apple-system, 'Segoe UI', sans-serif;
   color-scheme: light;
 }
 
@@ -9,12 +27,165 @@ html,
 body {
   padding: 0;
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    'Segoe UI',
-    Roboto,
-    Helvetica,
-    Arial,
-    sans-serif;
+}
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.wrap {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.serif {
+  font-family: var(--serif);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.eyebrow {
+  font-size: 11.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font: inherit;
+  font-weight: 500;
+  border-radius: 10px;
+  padding: 13px 22px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  text-decoration: none;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 10px 22px -14px rgba(31, 92, 82, 0.8);
+}
+.btn-primary:hover {
+  background: var(--accent-strong);
+}
+.btn-primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--line);
+}
+.btn-ghost:hover {
+  border-color: var(--ink);
+}
+
+/* Chips (selettori del funnel) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-size: 14.5px;
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+.chip[aria-pressed='true'],
+.chip.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Campi */
+.field {
+  display: block;
+  margin: 14px 0;
+}
+.label {
+  display: block;
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.input {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  color: var(--ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  outline: none;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Card */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow:
+    0 1px 0 rgba(27, 26, 23, 0.02),
+    0 24px 48px -36px rgba(27, 26, 23, 0.3);
+}
+
+/* Funnel (scoping) */
+.fnl h2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: 25px;
+  letter-spacing: -0.01em;
+  margin: 0 0 18px;
+}
+.fnl label {
+  display: block;
+  font-size: 13.5px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+.fnl section > p {
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
 }
