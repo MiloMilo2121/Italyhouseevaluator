@@ -30,6 +30,10 @@ export function enrichResultToUpdate(r: EnrichResult): Record<string, unknown> {
     confidence_fsd: r.confidence.fsd,
     breakdown: r.breakdown,
     comparables: r.comparables,
+    zone_intelligence: r.zone_intelligence ?? null,
+    correction: r.correction ?? null,
+    estimate_deterministic_min: r.estimate_deterministic_min ?? null,
+    estimate_deterministic_max: r.estimate_deterministic_max ?? null,
     valuation_status: 'enriched',
     updated_at: new Date().toISOString(),
   };
