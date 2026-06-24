@@ -7,6 +7,7 @@ import {
   weightComparables,
 } from './comparables';
 import { DEFAULT_MACRO_AREA, type MacroArea } from '@/lib/comps/discount';
+import { fitHedonic } from './hedonic';
 import { computeConfidence } from './confidence';
 import { computeBaseEstimate, condizioniToStato, selectOmiRow } from './omi';
 import { computeRange } from './range';
@@ -14,6 +15,9 @@ import { boxAutoValue, computeSurface } from './surface';
 import { round2 } from './util';
 import type { OmiResolver, ComparablesProvider } from './ports';
 import type { BreakdownLine, CoefficientSet, EnrichResult, SubjectProperty } from './types';
+
+/** Sotto questa numerosità di comparabili la stima edonica non si attiva (resta ai fissi). */
+const MIN_COMP_FOR_HEDONIC = 4;
 
 /**
  * Orchestratore del motore (async, dipendenze iniettate). NON ha side-effect
@@ -64,6 +68,9 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
   });
   const weighted = weightComparables(subject, comps);
   const summary = compsSummary(comps);
+  // Stima edonica dei parametri dai comp (Fase 2). Sotto soglia ⇒ undefined ⇒
+  // omogeneizzazione coi coefficienti fissi (β=prior ⇒ stesso risultato).
+  const hedonicModel = weighted.length >= MIN_COMP_FOR_HEDONIC ? fitHedonic(subject, weighted, m) : undefined;
 
   // 7. Confidenza (raffinata dai comparabili quando presenti).
   const confidence = computeConfidence({
@@ -82,6 +89,7 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
         surfaceCommercialeMq: surface.superficieCommercialeMq,
         shrinkageK: k,
         macroArea,
+        ...(hedonicModel ? { hedonicModel } : {}),
       })
     : null;
 
@@ -107,7 +115,8 @@ export async function enrich(subject: SubjectProperty, deps: EnrichDeps): Promis
     estimate_max: finalEstimate?.max ?? null,
     confidence,
     breakdown,
-    comparables: buildAdjustmentGrid(weighted, { subject, merit: m, macroArea }),
+    comparables: buildAdjustmentGrid(weighted, { subject, merit: m, macroArea, ...(hedonicModel ? { hedonicModel } : {}) }),
+    hedonic: hedonicModel?.summary ?? null,
   };
 }
 

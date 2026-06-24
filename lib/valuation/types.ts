@@ -145,10 +145,27 @@ export interface Comparable {
   pianiEdificio?: number | null;
   ascensore?: boolean | null;
   classeEnergetica?: string | null;
+  // Attributi per la stima edonica + similarità (Fase 2). Assenti ⇒ esclusi dalla feature.
+  locali?: number | null;
+  hasTerrazzo?: boolean | null;
+  hasBalcone?: boolean | null;
 }
 
 export interface WeightedComparable extends Comparable {
   weight: number;
+}
+
+// ---- Stima edonica (Fase 2) ----
+/** Fit edonico: premi marginali stimati dai comp (β), calibrati verso i fissi. */
+export interface HedonicFit {
+  betas: Record<string, number>;
+  /** Numero efficace di comparabili (Σ pesi). */
+  nEff: number;
+  /** R² pesato del fit (bontà). */
+  r2Weighted: number;
+  lambda: number;
+  /** True se la numerosità è troppo bassa: i β collassano sui coefficienti fissi. */
+  usedFixedFallback: boolean;
 }
 
 export interface Estimate {
@@ -226,4 +243,6 @@ export interface EnrichResult {
   breakdown: BreakdownLine[];
   /** Griglia di omogeneizzazione MCA (vuota se nessun comparabile). */
   comparables: ComparableContribution[];
+  /** Diagnostica della calibrazione edonica (assente ⇒ usati i coefficienti fissi). */
+  hedonic?: HedonicFit | null;
 }

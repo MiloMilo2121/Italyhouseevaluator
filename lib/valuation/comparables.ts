@@ -2,6 +2,7 @@ import { classeEnergeticaFactor, statoCorrectiveFactor } from './coefficients';
 import { resolvePianoFactor } from './coefficient';
 import { condizioniToStato } from './omi';
 import { discountedEurMq, type MacroArea } from '@/lib/comps/discount';
+import type { HedonicModel } from './hedonic';
 import { clamp, round2 } from './util';
 import type { ComparablesProvider, ComparablesQueryOpts } from './ports';
 import type {
@@ -133,10 +134,26 @@ export function adjustedEurMq(
   return round2(discounted * ratio);
 }
 
+/**
+ * €/mq del comp corretto verso il subject. Se è presente un modello EDONICO
+ * (Fase 2), usa il suo fattore data-driven (sconto offerta→rogito × adjustFactor);
+ * altrimenti il rapporto di merito FISSO. β=prior ⇒ i due coincidono.
+ */
+export function correctedEurMq(
+  subject: SubjectProperty,
+  comp: Comparable,
+  ctx: { merit: MeritCoefficients; macroArea?: MacroArea; hedonicModel?: HedonicModel },
+): number {
+  if (ctx.hedonicModel) {
+    return round2(discountedEurMq(comp.pricePerMq, comp.source, ctx.macroArea) * ctx.hedonicModel.adjustFactor(comp));
+  }
+  return adjustedEurMq(subject, comp, ctx.merit, ctx.macroArea);
+}
+
 /** Griglia di omogeneizzazione per il report (comparabili attribuiti). */
 export function buildAdjustmentGrid(
   weighted: WeightedComparable[],
-  ctx: { subject: SubjectProperty; merit: MeritCoefficients; macroArea?: MacroArea },
+  ctx: { subject: SubjectProperty; merit: MeritCoefficients; macroArea?: MacroArea; hedonicModel?: HedonicModel },
 ): ComparableContribution[] {
   return weighted.map((c) => ({
     id: c.id,
@@ -146,7 +163,7 @@ export function buildAdjustmentGrid(
     stato: c.stato,
     rawEurMq: round2(c.pricePerMq),
     discountedEurMq: discountedEurMq(c.pricePerMq, c.source, ctx.macroArea),
-    correctedEurMq: adjustedEurMq(ctx.subject, c, ctx.merit, ctx.macroArea),
+    correctedEurMq: correctedEurMq(ctx.subject, c, ctx),
     weight: round2(c.weight),
   }));
 }
@@ -157,6 +174,8 @@ export interface ReconcileCtx {
   surfaceCommercialeMq: number;
   shrinkageK: number;
   macroArea?: MacroArea;
+  /** Modello edonico (Fase 2): se presente, l'omogeneizzazione è data-driven. */
+  hedonicModel?: HedonicModel;
 }
 
 /**
@@ -174,7 +193,7 @@ export function reconcile(
 
   const corrected = weighted.map((w) => ({
     weight: w.weight,
-    eurMq: adjustedEurMq(ctx.subject, w, ctx.merit, ctx.macroArea),
+    eurMq: correctedEurMq(ctx.subject, w, ctx),
   }));
   const sumW = corrected.reduce((s, c) => s + c.weight, 0);
   if (sumW <= 0) return priorOmi;
