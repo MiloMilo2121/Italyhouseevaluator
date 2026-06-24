@@ -41,3 +41,10 @@ yarn-error.log*
 
 # anteprima generata (artefatto, rigenerabile con `npm run render:mock`)
 /mock-preview.html
+
+# mockup di design locale (riferimento; il report generico è in lib/report/)
+/Italy house evaluator rebranding/
+
+# dataset comparabili Apify (gated)
+/data/comps/*
+!/data/comps/.gitkeep

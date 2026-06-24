@@ -46,9 +46,13 @@ chiave geocoding, `VALUATION_MODEL_VERSION`.
 
 ## Database (Supabase + PostGIS)
 
-Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0014`
+Le migrazioni sono file SQL versionati in `supabase/migrations/0001..0026`
 (append-only: non modificare una migrazione già spedita, aggiungerne una nuova).
 La baseline consolidata in singolo file è `valutatore_schema.sql`.
+
+> Stato DB (giugno 2026): OMI 2025-2 ingerito (nazionale), migrazioni fino a
+> **0022** e **0026** applicate. Le **0023/0024/0025** (filtro tipologia +
+> attributi comp) vanno applicate quando si attivano i comparabili (Apify).
 
 Applicazione (Supabase CLI):
 
@@ -72,15 +76,25 @@ dipendono). Il set di coefficienti di default attivo è seedato da `0008`.
 I file OMI reali (gated da SPID/area riservata) vanno in `data/omi/`
 (gitignored): `VALORI` csv, `ZONE` csv, perimetri `KML`.
 
+Il formato reale dell'Agenzia Entrate fornisce `QI_<YYYYS>_VALORI.csv` +
+`QI_<YYYYS>_ZONE.csv` (16 col) + **un KML per comune** (es. `A001.kml`). Il
+flag `--kml-dir` itera la directory dei KML (la zona si identifica via
+`CODCOM`+`CODZONA`); lo script carica `.env.local` da sé.
+
 ```bash
 # dry-run: pipeline + report, senza scrivere su DB
-npm run ingest:omi -- --dry-run --semestre 2024-2 \
-  --valori data/omi/valori.csv --zone data/omi/zone.csv --kml data/omi/zone.kml
+npm run ingest:omi -- --dry-run --semestre 2025-2 \
+  --valori "<dir>/QI_20252_VALORI.csv" --zone "<dir>/QI_20252_ZONE.csv" --kml-dir "<dir>"
 
-# ingestion reale (upsert idempotente su Supabase)
-npm run ingest:omi -- --semestre 2024-2 \
-  --valori data/omi/valori.csv --zone data/omi/zone.csv --kml data/omi/zone.kml
+# ingestion reale (upsert idempotente + resiliente su Supabase)
+npm run ingest:omi -- --semestre 2025-2 \
+  --valori "<dir>/QI_20252_VALORI.csv" --zone "<dir>/QI_20252_ZONE.csv" --kml-dir "<dir>"
 ```
+
+La RPC `omi_upsert_quotations` (mig. 0022) fa `ST_SimplifyPreserveTopology` +
+`ST_CollectionExtract` + `ST_Multi` (geometrie valide e leggere). L'upsert dello
+script è **resiliente**: una geometria degenere o un timeout ripiega riga-per-riga
+senza abortire.
 
 La pipeline (`lib/omi/`) è pura e gestisce le insidie reali del formato:
 separatore `;`, riga di didascalia iniziale, `;` finale spurio, decimali con
@@ -245,6 +259,50 @@ npm run ingest:comps -- --portal immobiliare --file data/comps/dataset.json --dr
 > → l'agente revisiona (flywheel). Logica deterministica calcola, l'LLM (Step 2)
 > narrerà. Apify/DB live sono gated (token/creds), come i file OMI.
 
+## V3 — Flusso completo (edonica · Perplexity · correzione · 2 report)
+
+Estensione del motore, **innestata sui seam esistenti** (zero rewrite, degrado
+pulito senza chiavi). Principio fermo: **i numeri li fa il motore deterministico**;
+Perplexity aggiunge contesto, l'LLM corregge solo entro un clamp **tracciato**.
+
+Pipeline: `OMI (ancora) → comparabili Apify 2-raggi → stima EDONICA dei parametri
+→ Perplexity (contesto/controllo) → correzione LLM vincolata → valore → 2 report`.
+
+- **Stima edonica** (`lib/valuation/hedonic.ts`): regressione ridge pesata su
+  `log(€/mq)` con **prior verso i coefficienti fissi**; stima i premi marginali
+  (classe, piano, stato, n. locali, terrazzo, elasticità superficie) dai comp
+  reali. `λ = λ0·k/(k+nEff)`: pochi comp ⇒ β≈prior ⇒ **fallback automatico ai
+  fissi**. Selezione 2-raggi (largo ~3 km + 30 più vicini) + similarità
+  multi-attributo (`comparable-selection.ts`).
+- **Zone intelligence** (`lib/perplexity/`): ricerca web (appetibilità zona,
+  venduto/vendibile, prezzi medi); lo **scostamento vs OMI lo calcola il codice**,
+  non l'LLM. Gated `PERPLEXITY_API_KEY` (assente ⇒ no-op).
+- **Correzione vincolata** (`lib/valuation/correction/`): l'LLM propone solo un
+  **fattore**; `clamp.ts` lo taglia entro ±`CORRECTION_CLAMP_MAX_PCT` (def 6%) e
+  lo applica al valore deterministico (point/min/max stesso fattore). Il valore
+  puro resta in `estimate_deterministic_*` (audit); riga di breakdown tracciata.
+  Doppio gate `ANTHROPIC_API_KEY` + `CORRECTION_ENABLED`.
+- **2 report** (`lib/report/valuation-report.ts`): design editoriale **generico**
+  (no logo), `variant: 'agent' | 'client'`. Agente = completo (composizione,
+  griglia comparabili, contesto zona, correzione, catasto, perizia); cliente =
+  sintetico. Anteprima di entrambi su **`/mock`**. Cliente: email via
+  `POST /api/agenti/report-cliente` + anteprima stampabile `/agenti/[ref]/cliente`
+  (Salva come PDF).
+
+### Attivazione comparabili (Apify)
+
+```bash
+# 1) applicare al DB le migrazioni 0023/0024/0025
+# 2) COMPS_ENABLED=true + APIFY_TOKEN in .env.local
+# 3) run dell'actor immobiliare.it/idealista su una zona → datasetId, poi:
+npm run ingest:comps -- --portal immobiliare --dataset <datasetId>
+```
+
+Env opzionali (gated, degradano puliti): `APIFY_TOKEN`, `COMPS_ENABLED`,
+`PERPLEXITY_API_KEY`, `CORRECTION_ENABLED`, `ANTHROPIC_API_KEY`, `RESEND_API_KEY`.
+Vedi `.env.example`. Quando si attiva una logica che cambia i numeri, **bumpare
+`VALUATION_MODEL_VERSION`** (non ricalcola lo storico, applica il nuovo ai nuovi).
+
 ## Roadmap (Fase 1) — ✅ completa
 
 - [x] **M1** — scaffold Next.js + migrazioni Supabase/PostGIS + seed coefficienti
@@ -253,3 +311,15 @@ npm run ingest:comps -- --portal immobiliare --file data/comps/dataset.json --dr
 - [x] **M4** — API route `/api/valutazione` (validate→commit→enrich→email→200)
 - [x] **M5** — funnel funzionante `/valutazione` (geocoding dietro interfaccia)
 - [x] **M6** — dashboard agente `/agenti` (auth + RLS + chiusura flywheel)
+
+### V2 / V3 — ✅ completa (codice; attivazione dati/chiavi gated)
+
+- [x] **OMI reale** ingerito (2025-2 nazionale) + ingestione resiliente
+- [x] **Comparabili MCA** + sconto offerta→rogito + filtro gruppo di mercato
+- [x] **Narrazione + perizia** LLM grounded · **document intelligence** (catasto/APE/planimetrie)
+- [x] **Stima edonica** dei parametri dai comparabili (Fase 2)
+- [x] **Comparabili 2-raggi** + attributi (locali/terrazzo) (Fase 1)
+- [x] **Zone intelligence** Perplexity (Fase 3) + **correzione LLM vincolata** (Fase 4)
+- [x] **2 report** generici (agente/cliente) + consegna email/anteprima PDF (Fase 5)
+- [ ] *Attivazione*: actor Apify + migrazioni 0023-0025 + chiavi Perplexity/correzione
+- [ ] *Polish*: PDF auto-allegato (`@react-pdf`) · restyle generico funnel/landing
