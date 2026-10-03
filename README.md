@@ -1,8 +1,41 @@
 # Valutatore Immobiliare Delfino
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-15.5-black?style=for-the-badge&logo=next.js" alt="Next.js 15" />
+  <img src="https://img.shields.io/badge/TypeScript-Strict-blue?style=for-the-badge&logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Supabase-PostGIS-3ECF8E?style=for-the-badge&logo=supabase" alt="Supabase PostGIS" />
+  <img src="https://img.shields.io/badge/Claude-5.5_Opus%20%26%20Sonnet-D97706?style=for-the-badge&logo=anthropic" alt="Claude 5.5" />
+  <img src="https://img.shields.io/badge/OpenAI-Whisper-412991?style=for-the-badge&logo=openai" alt="OpenAI Whisper" />
+  <img src="https://img.shields.io/badge/Tests-245%20passed%20(100%25)-brightgreen?style=for-the-badge&logo=vitest" alt="Vitest 100%" />
+</p>
+
 Sistema avanzato di valutazione immobiliare sincrona e intelligenza documentale per agenzie immobiliari italiane (Delfino Real Estate).
 
 Il sistema unisce un **funnel conversazionale venditore** ad alta conversione con un **intelligence engine deterministico a più livelli** (OMI + Comparabili MCA + Regressione Edonica + Zone Intelligence + Correzione Bounded Claude 5.5) e una **dashboard operativa dedicata per gli agenti**, completando il ciclo con la perizia formale e la chiusura del flywheel di apprendimento.
+
+---
+
+## 📸 Anteprima & Interfaccia
+
+<p align="center">
+  <b>Landing Page & Funnel di Acquisizione</b><br/>
+  <img src="docs/screenshots/01_landing.png" alt="Landing Page" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+</p>
+
+<p align="center">
+  <b>Funnel Conversazionale Multi-Step (/valutazione)</b><br/>
+  <img src="docs/screenshots/02_funnel.png" alt="Funnel Step" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+</p>
+
+<p align="center">
+  <b>Report Editoriale di Stima (Dossier Agente & Scheda Cliente)</b><br/>
+  <img src="docs/screenshots/03_report_preview.png" alt="Report Preview" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+</p>
+
+<p align="center">
+  <b>Area Riservata Agenti (/agenti/login)</b><br/>
+  <img src="docs/screenshots/04_agent_login.png" alt="Agent Login" width="85%" style="border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+</p>
 
 ---
 

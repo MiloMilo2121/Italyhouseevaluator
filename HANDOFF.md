@@ -15,14 +15,14 @@
 
 | Risorsa | Valore | Stato |
 |---|---|---|
-| Progetto Supabase | `valutatore-delfino` — ref `pdepjngksvgxpciflaig` (EU Frankfurt) | ✅ attivo |
-| Migrazioni DB | 21 (`0001`→`0021`: schema, RLS, RPC, trigger, seed, perizia) | ✅ applicate |
+| Progetto Supabase | `valutatore-delfino` (EU Frankfurt) | ✅ configurabile |
+| Migrazioni DB | 27 (`0001`→`0027`: schema, RLS, RPC, trigger, seed, perizia, JSONB guard) | ✅ incluse |
 | Coefficient set | `default v1` (seed `0008`) | ✅ caricato |
-| Utente agente | email `marco.milamelo@gmail.com` (password in chat) | ✅ creato |
-| Codice GitHub | branch `main` e `claude/loving-shannon-vqi7in` | ✅ allineati |
+| Utente agente | `agente@delfinorealestate.it` | ✅ supportato |
+| Codice GitHub | branch `main` | ✅ allineato |
 
 Dashboard API keys (per `service_role`):
-https://supabase.com/dashboard/project/pdepjngksvgxpciflaig/settings/api-keys
+https://supabase.com/dashboard/project/<project-ref>/settings/api-keys
 
 ---
 
@@ -37,9 +37,9 @@ git log --oneline -3
 ## FASE 1 — `.env.local` (root del progetto, gitignored)
 
 ```bash
-# SUPABASE — backend GIÀ provisionato, NON ricreare
-NEXT_PUBLIC_SUPABASE_URL=https://pdepjngksvgxpciflaig.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBkZXBqbmdrc3ZneHBjaWZsYWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3NzQ0NDIsImV4cCI6MjA5NzM1MDQ0Mn0.bUdqGrAeMorjUvlUqqQhoP8_ZFJFfm0yejL_-rSR49s
+# SUPABASE
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
 
 # SEGRETA — prendila dal dashboard (link sopra), riga `service_role` → Reveal
 SUPABASE_SERVICE_ROLE_KEY=
