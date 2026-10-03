@@ -10,7 +10,7 @@ import type { BoundedCorrector, CorrectionRequest, RawCorrection } from '../port
  * sonnet (correzione leggera), gated su ANTHROPIC_API_KEY + CORRECTION_ENABLED.
  */
 
-export const DEFAULT_CORRECTION_MODEL = 'claude-sonnet-4-6';
+export const DEFAULT_CORRECTION_MODEL = 'claude-sonnet-5-5';
 
 export class AnthropicBoundedCorrector implements BoundedCorrector {
   private readonly client: Anthropic;

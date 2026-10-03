@@ -1,8 +1,16 @@
 import { NextResponse } from 'next/server';
+import crypto from 'node:crypto';
 import { ApifyClient, extract } from '@/lib/comps/apify';
 import { normalizeListings, type RawListing } from '@/lib/comps/normalize';
 import { createServiceClient } from '@/lib/db/client';
 import type { SupabaseRpcClient } from '@/lib/omi/query-supabase';
+
+function safeCompare(a: string, b: string): boolean {
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 /**
  * Webhook Apify (V2): ricevuto `ACTOR.RUN.SUCCEEDED`, recupera il dataset, lo
@@ -12,6 +20,15 @@ import type { SupabaseRpcClient } from '@/lib/omi/query-supabase';
 export const runtime = 'nodejs';
 
 export async function POST(req: Request): Promise<Response> {
+  const expectedSecret = process.env['APIFY_WEBHOOK_SECRET'];
+  if (expectedSecret) {
+    const url = new URL(req.url);
+    const providedSecret = url.searchParams.get('secret') ?? req.headers.get('x-apify-webhook-secret');
+    if (!providedSecret || !safeCompare(providedSecret, expectedSecret)) {
+      return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 });
+    }
+  }
+
   const token = process.env['APIFY_TOKEN'];
   if (!token) return NextResponse.json({ error: 'APIFY_TOKEN non configurato' }, { status: 503 });
 

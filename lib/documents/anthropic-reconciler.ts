@@ -15,7 +15,7 @@ import type { DocumentReconciler, ReconcilerInput, ReconciliationResult } from '
  * puro `applyReconciliation` filtra poi gli override prima di toccare il subject.
  */
 
-export const DEFAULT_RECONCILER_MODEL = 'claude-opus-4-8';
+export const DEFAULT_RECONCILER_MODEL = 'claude-opus-5-5';
 
 export class AnthropicReconciler implements DocumentReconciler {
   private readonly client: Anthropic;
@@ -27,14 +27,25 @@ export class AnthropicReconciler implements DocumentReconciler {
   }
 
   async reconcile(input: ReconcilerInput): Promise<ReconciliationResult | null> {
-    const response = await this.client.messages.parse({
-      model: this.model,
-      max_tokens: 2000,
-      system: RECONCILER_SYSTEM,
-      messages: [{ role: 'user', content: buildReconcilerUserContent(input) }],
-      output_config: { format: jsonSchemaOutputFormat(RECONCILER_JSON_SCHEMA) },
-    });
-    const parsed = ReconciliationSchema.safeParse(response.parsed_output);
-    return parsed.success ? (parsed.data as unknown as ReconciliationResult) : null;
+    try {
+      const response = await this.client.messages.parse({
+        model: this.model,
+        max_tokens: 2000,
+        system: [
+          {
+            type: 'text',
+            text: RECONCILER_SYSTEM,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [{ role: 'user', content: buildReconcilerUserContent(input) }],
+        output_config: { format: jsonSchemaOutputFormat(RECONCILER_JSON_SCHEMA) },
+      });
+      const parsed = ReconciliationSchema.safeParse(response.parsed_output);
+      return parsed.success ? (parsed.data as unknown as ReconciliationResult) : null;
+    } catch (e) {
+      console.error('[AnthropicReconciler] reconcile error', e);
+      return null;
+    }
   }
 }

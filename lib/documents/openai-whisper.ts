@@ -18,6 +18,22 @@ export interface OpenAiTranscriberOptions {
   fetchImpl?: FetchImpl;
 }
 
+const MIME_TO_EXT: Record<string, string> = {
+  'audio/mpeg': 'mp3',
+  'audio/mp4': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/m4a': 'm4a',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+};
+
+export function audioFilenameFromMime(mime: string): string {
+  const ext = MIME_TO_EXT[mime.toLowerCase()] ?? 'mp3';
+  return `nota-vocale.${ext}`;
+}
+
 export class OpenAiTranscriber implements Transcriber {
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -34,7 +50,7 @@ export class OpenAiTranscriber implements Transcriber {
   async transcribe(file: DocumentFile): Promise<VoiceNoteExtraction | null> {
     const bytes = Buffer.from(file.data, 'base64');
     const form = new FormData();
-    form.append('file', new Blob([bytes], { type: file.mime }), 'nota-vocale');
+    form.append('file', new Blob([bytes], { type: file.mime }), audioFilenameFromMime(file.mime));
     form.append('model', this.model);
 
     const res = await this.fetchImpl(`${this.baseUrl}/audio/transcriptions`, {

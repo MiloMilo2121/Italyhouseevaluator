@@ -11,7 +11,7 @@ import type { DocumentAttachment, PeriziaInput, PeriziaSections, PeriziaWriter }
  * Gated su ANTHROPIC_API_KEY (factory).
  */
 
-export const DEFAULT_PERIZIA_MODEL = 'claude-opus-4-8';
+export const DEFAULT_PERIZIA_MODEL = 'claude-opus-5-5';
 
 const IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
@@ -33,20 +33,31 @@ export class AnthropicPeriziaWriter implements PeriziaWriter {
   }
 
   async write(input: PeriziaInput, attachments: DocumentAttachment[] = []): Promise<PeriziaSections | null> {
-    const blocks = attachments.map(attachmentBlock);
-    const content = [
-      ...blocks,
-      { type: 'text', text: buildPeriziaUserContent(input) },
-    ] as unknown as Anthropic.MessageParam['content'];
+    try {
+      const blocks = attachments.map(attachmentBlock);
+      const content = [
+        ...blocks,
+        { type: 'text', text: buildPeriziaUserContent(input) },
+      ] as unknown as Anthropic.MessageParam['content'];
 
-    const response = await this.client.messages.parse({
-      model: this.model,
-      max_tokens: 8000,
-      system: PERIZIA_SYSTEM,
-      messages: [{ role: 'user', content }],
-      output_config: { format: jsonSchemaOutputFormat(PERIZIA_JSON_SCHEMA) },
-    });
-    const parsed = PeriziaSchema.safeParse(response.parsed_output);
-    return parsed.success ? parsed.data : null;
+      const response = await this.client.messages.parse({
+        model: this.model,
+        max_tokens: 8000,
+        system: [
+          {
+            type: 'text',
+            text: PERIZIA_SYSTEM,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [{ role: 'user', content }],
+        output_config: { format: jsonSchemaOutputFormat(PERIZIA_JSON_SCHEMA) },
+      });
+      const parsed = PeriziaSchema.safeParse(response.parsed_output);
+      return parsed.success ? parsed.data : null;
+    } catch (e) {
+      console.error('[AnthropicPeriziaWriter] write error', e);
+      return null;
+    }
   }
 }

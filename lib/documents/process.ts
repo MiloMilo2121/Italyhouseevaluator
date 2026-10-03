@@ -176,7 +176,12 @@ export async function reconcileReference(referenceId: string, deps: ProcessDeps)
     .filter((d) => d.kind === 'nota_vocale' && d.status === 'extracted' && d.extraction != null)
     .map((d) => d.extraction as VoiceNoteExtraction);
 
-  const catasto = await deps.catasto.lookup({ indirizzo: request.indirizzo, comune: request.comune });
+  let catasto = null;
+  try {
+    catasto = await deps.catasto.lookup({ indirizzo: request.indirizzo, comune: request.comune });
+  } catch (err) {
+    console.error('[reconcile] catasto lookup non disponibile:', err);
+  }
 
   const reconciliation = await deps.reconciler.reconcile({
     declared: toDeclaredFacts(request.subject),

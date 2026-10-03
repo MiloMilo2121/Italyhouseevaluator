@@ -11,11 +11,11 @@ import type { Narrator, NarrationInput, ValuationNarrative } from './types';
  * (Si usa il JSON schema e non `zodOutputFormat` perché quest'ultimo richiede
  * zod v4, mentre il progetto è su zod v3.)
  *
- * Default del modello: `claude-sonnet-4-6` (buona prosa IT, costo < Opus),
+ * Default del modello: `claude-sonnet-5-5` (buona prosa IT, costo < Opus),
  * sovrascrivibile via env `NARRATION_MODEL`. Gated su `ANTHROPIC_API_KEY`.
  */
 
-export const DEFAULT_NARRATION_MODEL = 'claude-sonnet-4-6';
+export const DEFAULT_NARRATION_MODEL = 'claude-sonnet-5-5';
 
 export class AnthropicNarrator implements Narrator {
   private readonly client: Anthropic;
@@ -27,14 +27,25 @@ export class AnthropicNarrator implements Narrator {
   }
 
   async narrate(input: NarrationInput): Promise<ValuationNarrative | null> {
-    const response = await this.client.messages.parse({
-      model: this.model,
-      max_tokens: 1500,
-      system: NARRATION_SYSTEM,
-      messages: [{ role: 'user', content: buildNarrationUserContent(input) }],
-      output_config: { format: jsonSchemaOutputFormat(NARRATIVE_JSON_SCHEMA) },
-    });
-    const parsed = NarrativeSchema.safeParse(response.parsed_output);
-    return parsed.success ? parsed.data : null;
+    try {
+      const response = await this.client.messages.parse({
+        model: this.model,
+        max_tokens: 1500,
+        system: [
+          {
+            type: 'text',
+            text: NARRATION_SYSTEM,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [{ role: 'user', content: buildNarrationUserContent(input) }],
+        output_config: { format: jsonSchemaOutputFormat(NARRATIVE_JSON_SCHEMA) },
+      });
+      const parsed = NarrativeSchema.safeParse(response.parsed_output);
+      return parsed.success ? parsed.data : null;
+    } catch (e) {
+      console.error('[AnthropicNarrator] narrate error', e);
+      return null;
+    }
   }
 }

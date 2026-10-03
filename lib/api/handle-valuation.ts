@@ -6,8 +6,8 @@ import {
 } from '@/lib/schemas/valuation-request.schema';
 import { enrich } from '@/lib/valuation/enrich';
 import { computeInputHash, referenceIdFromHash } from '@/lib/valuation/hash';
-import type { CoefficientSet, EnrichResult } from '@/lib/valuation/types';
-import type { ComparablesProvider, OmiResolver } from '@/lib/valuation/ports';
+import type { BoundedCorrector, ComparablesProvider, OmiResolver, ZoneIntelligenceProvider } from '@/lib/valuation/ports';
+import type { CoefficientSet, CorrectionParams, EnrichResult } from '@/lib/valuation/types';
 import { renderAgentCard, renderLeadConfirmation, type AgentCardData } from '@/lib/email/templates';
 import type { EmailSender, RequestPersistInput, ValuationPersistence } from './ports';
 
@@ -28,7 +28,10 @@ export interface HandleValuationDeps {
   emailSender: EmailSender;
   modelVersion: number;
   agentEmail: string;
-  dashboardBaseUrl?: string;
+  dashboardBaseUrl?: string | undefined;
+  zoneIntelligenceProvider?: ZoneIntelligenceProvider | undefined;
+  boundedCorrector?: BoundedCorrector | undefined;
+  correctionParams?: CorrectionParams | undefined;
 }
 
 export async function handleValuation(
@@ -63,6 +66,9 @@ export async function handleValuation(
       coefficientSet: cs,
       omiResolver: deps.omiResolver,
       comparablesProvider: deps.comparablesProvider,
+      ...(deps.zoneIntelligenceProvider ? { zoneIntelligenceProvider: deps.zoneIntelligenceProvider } : {}),
+      ...(deps.boundedCorrector ? { boundedCorrector: deps.boundedCorrector } : {}),
+      ...(deps.correctionParams ? { correctionParams: deps.correctionParams } : {}),
     });
     await deps.persistence.updateEnrichment(refId, enrichResult);
   } catch (err) {

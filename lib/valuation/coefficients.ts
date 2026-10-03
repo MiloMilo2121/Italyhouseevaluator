@@ -52,10 +52,25 @@ const meritCoefficientsSchema = z.object({
     Normale: z.number(),
     Scadente: z.number(),
   }),
-  range: z.object({
-    confidence_multiplier: confidenceLabelRecord,
-    min_rel_halfwidth: confidenceLabelRecord,
-  }),
+  range: z
+    .object({
+      confidence_multiplier: confidenceLabelRecord,
+      min_rel_halfwidth: confidenceLabelRecord,
+    })
+    // Invariante del range: confidenza più bassa ⇒ range non più stretto. Un set
+    // ricalibrato che violasse la monotonia Alta≤Media≤Bassa romperebbe
+    // silenziosamente "confidenza più bassa ⇒ range più ampio" — qui fallisce rumoroso.
+    .refine(
+      (r) =>
+        r.confidence_multiplier.Alta <= r.confidence_multiplier.Media &&
+        r.confidence_multiplier.Media <= r.confidence_multiplier.Bassa &&
+        r.min_rel_halfwidth.Alta <= r.min_rel_halfwidth.Media &&
+        r.min_rel_halfwidth.Media <= r.min_rel_halfwidth.Bassa,
+      {
+        message:
+          'range: confidence_multiplier e min_rel_halfwidth devono essere non-decrescenti (Alta ≤ Media ≤ Bassa)',
+      },
+    ),
 });
 
 const coefficientSetRowSchema = z.object({

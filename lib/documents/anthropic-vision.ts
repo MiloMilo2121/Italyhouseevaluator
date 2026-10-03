@@ -24,7 +24,7 @@ import type { ApeExtraction, DocumentFile, DocumentVisionExtractor, PlanimetriaE
  * 'parse'. Gated su ANTHROPIC_API_KEY (factory).
  */
 
-export const DEFAULT_VISION_MODEL = 'claude-opus-4-8';
+export const DEFAULT_VISION_MODEL = 'claude-sonnet-5-5';
 
 type ParseMode = 'parse' | 'create';
 
@@ -67,30 +67,47 @@ export class AnthropicVisionExtractor implements DocumentVisionExtractor {
     schema: Parameters<typeof jsonSchemaOutputFormat>[0],
     file: DocumentFile,
   ): Promise<unknown> {
-    const text =
-      this.parseMode === 'create'
-        ? `${instruction}\nRispondi SOLO con un oggetto JSON valido conforme allo schema atteso, senza testo aggiuntivo.`
-        : instruction;
-    const content = [sourceBlock(file), { type: 'text', text }] as unknown as Anthropic.MessageParam['content'];
+    try {
+      const text =
+        this.parseMode === 'create'
+          ? `${instruction}\nRispondi SOLO con un oggetto JSON valido conforme allo schema atteso, senza testo aggiuntivo.`
+          : instruction;
+      const content = [sourceBlock(file), { type: 'text', text }] as unknown as Anthropic.MessageParam['content'];
 
-    if (this.parseMode === 'create') {
-      const resp = await this.client.messages.create({
+      if (this.parseMode === 'create') {
+        const resp = await this.client.messages.create({
+          model: this.model,
+          max_tokens: 1024,
+          system: [
+            {
+              type: 'text',
+              text: system,
+              cache_control: { type: 'ephemeral' },
+            },
+          ],
+          messages: [{ role: 'user', content }],
+        });
+        return extractJson(resp);
+      }
+
+      const resp = await this.client.messages.parse({
         model: this.model,
         max_tokens: 1024,
-        system,
+        system: [
+          {
+            type: 'text',
+            text: system,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
         messages: [{ role: 'user', content }],
+        output_config: { format: jsonSchemaOutputFormat(schema) },
       });
-      return extractJson(resp);
+      return resp.parsed_output;
+    } catch (e) {
+      console.error('[AnthropicVisionExtractor] run error', e);
+      return null;
     }
-
-    const resp = await this.client.messages.parse({
-      model: this.model,
-      max_tokens: 1024,
-      system,
-      messages: [{ role: 'user', content }],
-      output_config: { format: jsonSchemaOutputFormat(schema) },
-    });
-    return resp.parsed_output;
   }
 
   async extractApe(file: DocumentFile): Promise<ApeExtraction | null> {

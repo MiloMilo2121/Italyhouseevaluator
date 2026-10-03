@@ -34,6 +34,8 @@ yarn-error.log*
 # OMI raw data (gated by SPID/area riservata — never commit)
 /data/omi/*
 !/data/omi/.gitkeep
+# perimetrali OMI reali (KML per comune, export SPID) — dir alternativa alla root
+/data_omi/
 
 # supabase local
 /supabase/.branches

@@ -54,9 +54,14 @@ const serverSchema = z.object({
     .transform((v) => v === 'true'),
   CORRECTION_MODEL: z.string().min(1).optional(),
   CORRECTION_CLAMP_MAX_PCT: z.coerce.number().min(0).max(0.2).optional(),
-  CORRECTION_REQUIRE_ZONE_INTEL: z.enum(['true', 'false']).optional(),
   // V2 Step 5: fonti ufficiali comparabili (seam estensibile via COMPS_SOURCE).
   // Le API reali sono validate in deploy (come Apify/Catasto).
+  COMPS_ENABLED: z
+    .enum(['true', 'false'])
+    .optional()
+    .transform((v) => v === 'true'),
+  APIFY_TOKEN: z.string().min(1).optional(),
+  APIFY_WEBHOOK_SECRET: z.string().min(1).optional(),
   COMPS_SOURCE: z.string().min(1).default('apify'),
   IDEALISTA_DATA_BASE_URL: z.string().url().optional(),
   IDEALISTA_DATA_API_KEY: z.string().min(1).optional(),

@@ -162,6 +162,19 @@ describe('reconcileReference', () => {
     expect(store.saved!['document_facts']).toBeUndefined();
     expect(store.saved!['documenti_status']).toBe('reconciled');
   });
+
+  it('fallimento Catasto (es. API 500) degrada a null e non fa fallire la riconciliazione', async () => {
+    const store = new FakeStore([doc({ id: 'd1', status: 'extracted', extraction: makeApeExtraction() })], request);
+    const throwingCatasto = {
+      async lookup() {
+        throw new Error('Catasto lookup 502 Service Unavailable');
+      },
+    };
+    const out = await reconcileReference('ref', deps(store, { catasto: throwingCatasto, reconciler: new NullReconciler() }));
+    expect(out.reconciled).toBe(true);
+    expect(store.saved!['catasto']).toBeNull();
+    expect(store.saved!['documenti_status']).toBe('reconciled');
+  });
 });
 
 describe('revertReference', () => {

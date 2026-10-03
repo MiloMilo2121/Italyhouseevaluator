@@ -39,6 +39,25 @@ export function applyBoundedCorrection(
     };
   }
 
+  // Difesa in profondità: un factor_raw non finito (NaN/Infinity da un corrector
+  // custom o da un output degenere) NON deve mai clampare al bordo della banda né
+  // propagare NaN al valore. Il vincolo vive qui, nel punto puro, non solo nello
+  // schema dell'adapter Anthropic.
+  if (!Number.isFinite(raw.factor_raw)) {
+    return {
+      estimate,
+      applied: {
+        factor_raw: raw.factor_raw,
+        factor_applied: 1,
+        clamped: false,
+        motivazione: 'fattore di correzione non valido: nessuna correzione',
+        basis: 'none',
+        model,
+        applied_at: appliedAt,
+      },
+    };
+  }
+
   const factor = clamp(raw.factor_raw, 1 - params.clampMaxPct, 1 + params.clampMaxPct);
   const clamped = factor !== raw.factor_raw;
   return {

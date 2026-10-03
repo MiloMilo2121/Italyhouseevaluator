@@ -2,6 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { createBrowserSupabaseClient } from '@/lib/db/supabase-browser';
+import { DOCUMENTI_BUCKET } from '@/lib/documents/supabase-store';
 
 /**
  * Pannello documenti (dashboard agente). Carica planimetria/APE/note vocali,
@@ -52,14 +54,49 @@ export default function DocumentsPanel({
     setErr(null);
     setMsg(null);
     try {
-      const fd = new FormData();
-      fd.append('reference_id', referenceId);
-      fd.append('kind', kind);
-      fd.append('uploaded_by', 'agent');
-      fd.append('file', file);
-      const res = await fetch('/api/documenti/upload', { method: 'POST', body: fd });
-      const json = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(json.error ?? 'Upload fallito');
+      // 1. Prepare signed upload (bypassa il cap Vercel 4.5MB)
+      const prepRes = await fetch('/api/documenti/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'prepare',
+          reference_id: referenceId,
+          kind,
+          mime: file.type,
+          byte_size: file.size,
+          uploaded_by: 'agent',
+        }),
+      });
+      const prep = (await prepRes.json()) as { id?: string; path?: string; token?: string; error?: string };
+      if (!prepRes.ok || !prep.id || !prep.path || !prep.token) {
+        throw new Error(prep.error ?? 'Inizializzazione caricamento fallita');
+      }
+
+      // 2. Upload diretto su Storage via signed URL
+      const supabase = createBrowserSupabaseClient();
+      const { error: upErr } = await supabase.storage
+        .from(DOCUMENTI_BUCKET)
+        .uploadToSignedUrl(prep.path, prep.token, file);
+      if (upErr) throw new Error(upErr.message ?? 'Caricamento su storage fallito');
+
+      // 3. Conferma registrazione documento
+      const confRes = await fetch('/api/documenti/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'confirm',
+          id: prep.id,
+          reference_id: referenceId,
+          kind,
+          path: prep.path,
+          mime: file.type,
+          byte_size: file.size,
+          uploaded_by: 'agent',
+        }),
+      });
+      const conf = (await confRes.json()) as { error?: string };
+      if (!confRes.ok) throw new Error(conf.error ?? 'Registrazione documento fallita');
+
       const el = inputs.current[kind];
       if (el) el.value = '';
       router.refresh();

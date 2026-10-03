@@ -22,7 +22,11 @@ export function computeSurface(subject: SubjectProperty, w: SurfaceWeights): Sur
   const components: SurfaceComponent[] = [];
 
   const push = (label: string, areaMq: number, coeff: number): void => {
-    components.push({ label, areaMq, coeff, commercialMq: round2(areaMq * coeff) });
+    // Difesa in profondità: aree negative o non finite (possibili dal path
+    // documenti, che non passa dallo schema Zod del funnel) non devono corrompere
+    // la superficie commerciale. Un contributo invalido vale 0.
+    const safeArea = Number.isFinite(areaMq) ? Math.max(0, areaMq) : 0;
+    components.push({ label, areaMq: safeArea, coeff, commercialMq: round2(safeArea * coeff) });
   };
 
   // Superficie utile (sempre presente).

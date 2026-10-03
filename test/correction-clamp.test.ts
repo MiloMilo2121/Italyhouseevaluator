@@ -53,6 +53,24 @@ describe('correzione vincolata (Fase 4) — il clamp', () => {
     expect(r.estimate.pointEstimate).toBe(100000);
   });
 
+  it('factor_raw non finito (Infinity) ⇒ nessuna correzione, non clampato al bordo', () => {
+    const r = applyBoundedCorrection(estimate, raw(Infinity), params, zi, 'm', AT);
+    expect(r.applied.factor_applied).toBe(1);
+    expect(r.applied.clamped).toBe(false);
+    expect(r.applied.basis).toBe('none');
+    expect(r.estimate.pointEstimate).toBe(100000);
+    expect(r.estimate.min).toBe(90000);
+    expect(r.estimate.max).toBe(110000);
+  });
+
+  it('factor_raw NaN ⇒ nessuna correzione, valore invariato (mai NaN)', () => {
+    const r = applyBoundedCorrection(estimate, raw(NaN), params, zi, 'm', AT);
+    expect(r.applied.factor_applied).toBe(1);
+    expect(r.applied.basis).toBe('none');
+    expect(Number.isNaN(r.estimate.pointEstimate)).toBe(false);
+    expect(r.estimate.pointEstimate).toBe(100000);
+  });
+
   it('min/max scalano dello STESSO fattore (half-width relativa invariata)', () => {
     const r = applyBoundedCorrection(estimate, raw(1.05), params, zi, 'm', AT);
     const relBefore = (estimate.max - estimate.min) / estimate.pointEstimate;

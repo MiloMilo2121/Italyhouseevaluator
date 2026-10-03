@@ -46,7 +46,9 @@ export function buildCorrectionUserContent(req: CorrectionRequest): string {
 }
 
 export const RawCorrectionSchema = z.object({
-  factor_raw: z.number(),
+  // `.finite()` rifiuta NaN/Infinity (che `z.number()` da solo accetterebbe):
+  // un output LLM non finito ⇒ safeParse fallisce ⇒ nessuna correzione.
+  factor_raw: z.number().finite(),
   motivazione: z.string(),
 });
 

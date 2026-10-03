@@ -3,11 +3,7 @@ import { ValuationRequestSchema } from '@/lib/schemas/valuation-request.schema';
 import { handleValuation } from '@/lib/api/handle-valuation';
 import { createServiceClient } from '@/lib/db/client';
 import { SupabaseValuationPersistence } from '@/lib/db/valuations';
-import { loadActiveCoefficientSet } from '@/lib/db/coefficient-sets';
-import { SupabaseOmiQueryClient, type SupabaseRpcClient } from '@/lib/omi/query-supabase';
-import { OmiResolverImpl } from '@/lib/omi/resolver';
-import { emptyComparablesProvider } from '@/lib/valuation/comparables-empty';
-import { SupabaseComparablesProvider } from '@/lib/valuation/comparables-supabase';
+import { buildEnrichDeps } from '@/lib/api/build-enrich-deps';
 import { createEmailSender } from '@/lib/email/resend';
 import { getServerEnv } from '@/lib/env';
 
@@ -38,20 +34,19 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const env = getServerEnv();
     const client = createServiceClient();
-    const rpcClient = client as unknown as SupabaseRpcClient;
-    // V2: comparabili MCA dietro flag (default off ⇒ stima su base OMI).
-    const comparablesProvider =
-      process.env['COMPS_ENABLED'] === 'true'
-        ? new SupabaseComparablesProvider(rpcClient)
-        : emptyComparablesProvider;
+    const enrichDeps = await buildEnrichDeps(client);
+
     const result = await handleValuation(parsed.data, {
       persistence: new SupabaseValuationPersistence(client),
-      loadCoefficientSet: () => loadActiveCoefficientSet(client),
-      omiResolver: new OmiResolverImpl(new SupabaseOmiQueryClient(rpcClient)),
-      comparablesProvider,
+      loadCoefficientSet: () => Promise.resolve(enrichDeps.coefficientSet),
+      omiResolver: enrichDeps.omiResolver,
+      comparablesProvider: enrichDeps.comparablesProvider,
       emailSender: createEmailSender(),
       modelVersion: env.VALUATION_MODEL_VERSION,
       agentEmail: env.AGENT_NOTIFICATION_EMAIL ?? 'agenti@example.it',
+      ...(enrichDeps.zoneIntelligenceProvider ? { zoneIntelligenceProvider: enrichDeps.zoneIntelligenceProvider } : {}),
+      ...(enrichDeps.boundedCorrector ? { boundedCorrector: enrichDeps.boundedCorrector } : {}),
+      ...(enrichDeps.correctionParams ? { correctionParams: enrichDeps.correctionParams } : {}),
     });
     return NextResponse.json({ reference_id: result.referenceId }, { status: 200 });
   } catch (err) {
